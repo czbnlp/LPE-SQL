@@ -4,14 +4,11 @@ import json
 import os
 from openai import AzureOpenAI
 from tqdm import tqdm
-import time
-from concurrent.futures import ThreadPoolExecutor
-import concurrent.futures
-from utils import retry_on_timeout, execute_sql
-from prompt import generate_combined_prompts_one
+from utils import retry_on_timeout
+from prompt import generate_common_prompts_sql, generate_hand_prompts_one,generate_common_prompts_cot
 from reflection import reflect
 from retrieval import TextToSQLRetriever
-
+from utils import compute_acc_by_diff, save_data
 
 """openai configure"""
 api_version = "2024-02-01"
@@ -22,7 +19,7 @@ def new_directory(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-@retry_on_timeout(10 ,3)
+@retry_on_timeout(100 ,3)
 def qwen2_generation(prompt):
     messages = [
         {"role": "user", "content": prompt},
@@ -37,46 +34,41 @@ def qwen2_generation(prompt):
         messages=messages,
         stream=False,
         temperature=0,
-        max_tokens=700,
+        max_tokens=1000,
     )
     return completion.choices[0].message.content
 
-def connect_llm(engine, prompt, max_tokens, temperature, stop, client):
+@retry_on_timeout(100 ,3)
+def gpt_generation(prompt):
+    from openai import OpenAI
+    client = OpenAI(
+        # This is the default and can be omitted
+        api_key="sk-XJr4pM2XDm3cl4JTBc30Ba61Be5e42869dFa127e8b748401",
+        base_url="https://api.lqqq.ltd/v1",
+    )
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+    chat_completion = client.chat.completions.create(
+        messages=messages,
+        stream=False,
+        temperature=0,
+        max_tokens=1000,
+        model="gpt-3.5-turbo",
+    )
+    return chat_completion.choices[0].message.content
+
+def connect_llm(engine, prompt):
     """
     Function to connect to the GPT API and get the response.
     """
-    MAX_API_RETRY = 10
-    for i in range(MAX_API_RETRY):
-        time.sleep(2)
-        try:
-
-            if engine == "gpt-35-turbo-instruct":
-                result = client.completions.create(
-                    model="gpt-3.5-turbo-instruct",
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    stop=stop,
-                )
-                result = result.choices[0].text
-            elif engine == "qwen2-72b":
-                result = qwen2_generation(prompt)
-            else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
-                messages = [
-                    {"role": "user", "content": prompt},
-                ]
-                result = client.chat.completions.create(
-                    model=engine,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stop=stop,
-                )
-        except Exception as e:
-            result = "error:{}".format(e)
-            print(result)
-            time.sleep(4)
+    print("调用LLM")
+    if engine == "qwen2-72b":
+        result = qwen2_generation(prompt)
+    else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
+        result = gpt_generation(prompt)
     return result
+
 
 
 def decouple_question_schema(datasets, db_root_path):
@@ -130,21 +122,22 @@ def post_process_response(response, db_path):
     return sql
 
 
-def worker_function(question_data,retrieval):
+def worker_function(question_data,retrieval,use_knowledge_base):
     """
     Function to process each question, set up the client,
     generate the prompt, and collect the GPT response.
     """
-    prompt, engine, client, db_path, question, ground_truth,difficulty,i = question_data
-    response = connect_llm(engine, prompt, 512, 0, ["--", "\n\n", ";", "#"], client)
-
-    response = reflect(question, response, db_path,
-            connect_llm,(engine, "", 512, 0, ["--", "\n\n", ";", "#"], client),
+    prompt, engine, client, db_path, question, ground_truth,difficulty,knowledge, i = question_data
+    sql = connect_llm(engine, prompt)
+    cot_prompt = generate_common_prompts_cot(db_path,question,'SQLite',retrieval,sql,knowledge,use_knowledge_base = use_knowledge_base)
+    cot = connect_llm(engine, cot_prompt)
+    # print(prompt)
+    response = reflect(question, sql, db_path,
+            connect_llm,(engine, ""),
             retrieval = retrieval, ground_truth = ground_truth,
-            difficulty = difficulty)
+            difficulty = difficulty,cot = cot,knowledge=knowledge,use_knowledge_base = use_knowledge_base)
 
     sql = post_process_response(response, db_path)
-    print(f"Processed {i}th question: {question}")
     return sql, i
 
 
@@ -157,37 +150,85 @@ def collect_response_from_gpt(
     retrieval,
     ground_truth_list,
     difficulty_list,
+    top_k,
+    results_path,
     num_threads=3,
     knowledge_list=None,
-    
+    use_knowledge_base = True,
 ):
-    """
-    Collect responses from GPT using multiple threads.
-    """
     client = init_client(api_key, api_version, engine)
-
-    tasks = [
-        (
-            generate_combined_prompts_one(
-                db_path=db_path_list[i],
-                question=question_list[i],
-                sql_dialect=sql_dialect,
-                knowledge=knowledge_list[i],
-            ),
-            engine,
-            client,
-            db_path_list[i],
-            question_list[i],
-            ground_truth_list[i],
-            difficulty_list[i],
-            i,
-        )
-        for i in range(len(question_list))
-    ]
+    engine_dir = os.path.join(results_path, engine)
+    os.makedirs(engine_dir, exist_ok=True)
     responses = []
-    for task in tqdm(tasks, total=len(tasks)):
-        response = worker_function(task,retrieval)
-        responses.append(response)
+    if use_knowledge_base:
+        for i in tqdm(range(len(question_list)), desc=f"{engine} ; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}"):
+            # Generate the task only when needed
+            if i < 160:
+                continue
+            task = (
+                generate_common_prompts_sql(
+                    db_path=db_path_list[i],
+                    question=question_list[i],
+                    sql_dialect=sql_dialect,
+                    knowledge=knowledge_list[i] if knowledge_list else None,
+                    retrieval=retrieval,
+                    use_knowledge_base =use_knowledge_base,
+                ),
+                engine,
+                client,
+                db_path_list[i],
+                question_list[i],
+                ground_truth_list[i],
+                difficulty_list[i],
+                knowledge_list[i],
+                i,
+            )
+            # Execute the task immediately
+            response = worker_function(task, retrieval,use_knowledge_base)
+            print(f"{i}: {response}")
+            responses.append(response)
+            if (i+1) % 10 == 0:
+                correct_set_path = retrieval.correct_set_path
+                mistake_set_path = retrieval.mistake_set_path
+                simple_acc, moderate_acc, challenging_acc, acc, count_lists = compute_acc_by_diff(
+                    correct_set_path, mistake_set_path,retrieval
+                )
+                score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
+                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'.txt'
+                save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
+    else:
+        for i in tqdm(range(len(question_list)), desc=f"{engine}; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}"):
+            # Generate the task only when needed
+            task = (
+                generate_hand_prompts_one(
+                    db_path=db_path_list[i],
+                    question=question_list[i],
+                    sql_dialect=sql_dialect,
+                    top_k = top_k, 
+                    knowledge=knowledge_list[i] if knowledge_list else None,
+                ),
+                engine,
+                client,
+                db_path_list[i],
+                question_list[i],
+                ground_truth_list[i],
+                difficulty_list[i],
+                knowledge_list[i],
+                i,
+            )
+            # Execute the task immediately
+            response = worker_function(task, retrieval,use_knowledge_base)
+            print(f"{i}: {response}")
+            responses.append(response)
+            if (i+1) % 10 == 0:
+                correct_set_path = retrieval.correct_set_path
+                mistake_set_path = retrieval.mistake_set_path
+                simple_acc, moderate_acc, challenging_acc, acc, count_lists = compute_acc_by_diff(
+                    correct_set_path, mistake_set_path,retrieval
+                )
+                score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
+                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'.txt'
+                save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
     return responses
 
 
@@ -207,7 +248,15 @@ if __name__ == "__main__":
     args_parser.add_argument("--chain_of_thought", type=str)
     args_parser.add_argument("--num_processes", type=int, default=3)
     args_parser.add_argument("--sql_dialect", type=str, default="SQLite")
+    args_parser.add_argument("--top_k", type=int, default=1)
+    args_parser.add_argument("--results_path", type=str, default="")
+    args_parser.add_argument("--use_knowledge_base", type=str, default="True")
     args = args_parser.parse_args()
+    # print(args.use_knowledge_base)
+    if args.use_knowledge_base == 'True':
+        args.use_knowledge_base = True
+    else:
+        args.use_knowledge_base = False
 
     eval_data = json.load(open(args.eval_path, "r"))
 
@@ -215,61 +264,42 @@ if __name__ == "__main__":
         datasets=eval_data, db_root_path=args.db_root_path
     )
     assert len(question_list) == len(db_path_list) == len(knowledge_list)
-    correct_set = []  # 初始化正解集
-    mistake_set = []  # 初始化错题集
 
-    retrieval = TextToSQLRetriever(top_k=5)
+    init_correct_set_path = '/home/chuzhibo/acl/text-to-sql/bird/llm/src/knowledge_base/init_correct_set.json'
+    retrieval = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
+                                   init_correct_set_path=init_correct_set_path)
 
+    responses = collect_response_from_gpt(
+        db_path_list,
+        question_list,
+        args.api_key,
+        args.engine,
+        args.sql_dialect,
+        retrieval,
+        ground_truth_list,
+        difficulty_list,
+        args.top_k,
+        args.results_path,
+        args.num_processes,
+        knowledge_list,
+        use_knowledge_base = args.use_knowledge_base
+    )
 
-    if args.use_knowledge == "True":
-        responses = collect_response_from_gpt(
-            db_path_list,
-            question_list,
-            args.api_key,
-            args.engine,
-            args.sql_dialect,
-            retrieval,
-            ground_truth_list,
-            difficulty_list,
-            args.num_processes,
-            knowledge_list,
-        )
-    else:
-        responses = collect_response_from_gpt(
-            db_path_list,
-            question_list,
-            args.api_key,
-            args.engine,
-            args.sql_dialect,
-            retrieval,
-            ground_truth_list,
-            difficulty_list,
-            args.num_processes,
-        )
-
-    if args.chain_of_thought == "True":
-        output_name = (
-            args.data_output_path
-            + "predict_"
-            + args.mode
-            + "_"
-            + args.engine
-            + "_cot"
-            + "_"
-            + args.sql_dialect
-            + ".json"
-        )
-    else:
-        output_name = (
-            args.data_output_path
-            + "predict_"
-            + args.mode
-            + "_"
-            + args.engine
-            + "_"
-            + args.sql_dialect
-            + ".json"
-        )
+    output_name = (
+        args.data_output_path
+        + "predict_"
+        + args.mode
+        + "_"
+        + args.engine
+        + "_cot"
+        + "_"
+        + args.sql_dialect
+        + "_"
+        + str(args.use_knowledge_base)
+        + "_"
+        + str(args.top_k)
+        + ".json"
+    )
     generate_sql_file(sql_lst=responses, output_path=output_name)
 
     print(

@@ -1,0 +1,88 @@
+Result Index: 10
+                     simple               moderate             challenging          total               
+count                3                    4                    3                    10                  
+======================================    EX    =====================================
+EX                   66.67                25.00                33.33                40.00               
+
+
+
+Result Index: 20
+                     simple               moderate             challenging          total               
+count                9                    8                    3                    20                  
+======================================    EX    =====================================
+EX                   66.67                62.50                33.33                60.00               
+
+
+
+Result Index: 30
+                     simple               moderate             challenging          total               
+count                14                   12                   4                    30                  
+======================================    EX    =====================================
+EX                   57.14                50.00                50.00                53.33               
+
+
+
+Result Index: 40
+                     simple               moderate             challenging          total               
+count                18                   17                   5                    40                  
+======================================    EX    =====================================
+EX                   55.56                52.94                60.00                55.00               
+
+
+
+Result Index: 50
+                     simple               moderate             challenging          total               
+count                25                   19                   6                    50                  
+======================================    EX    =====================================
+EX                   68.00                57.89                50.00                62.00               
+
+
+
+Result Index: 60
+                     simple               moderate             challenging          total               
+count                30                   24                   6                    60                  
+======================================    EX    =====================================
+EX                   70.00                58.33                50.00                63.33               
+
+
+
+Result Index: 70
+                     simple               moderate             challenging          total               
+count                34                   30                   6                    70                  
+======================================    EX    =====================================
+EX                   70.59                60.00                50.00                64.29               
+
+
+
+Result Index: 80
+                     simple               moderate             challenging          total               
+count                35                   36                   9                    80                  
+======================================    EX    =====================================
+EX                   68.57                61.11                33.33                61.25               
+
+
+
+Result Index: 90
+                     simple               moderate             challenging          total               
+count                39                   40                   11                   90                  
+======================================    EX    =====================================
+EX                   69.23                62.50                36.36                62.22               
+
+
+
+Result Index: 100
+                     simple               moderate             challenging          total               
+count                40                   45                   15                   100                 
+======================================    EX    =====================================
+EX                   70.00                62.22                26.67                60.00               
+
+
+
+Result Index: 110
+                     simple               moderate             challenging          total               
+count                41                   52                   17                   110                 
+======================================    EX    =====================================
+EX                   70.73                61.54                35.29                60.91               
+
+
+

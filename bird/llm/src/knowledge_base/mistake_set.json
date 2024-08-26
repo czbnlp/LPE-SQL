@@ -1,9 +1,0 @@
-[
-    {
-        "question": "In 2012, who had the least consumption in LAM?",
-        "error_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Date BETWEEN '201201' AND '201212' AND T1.Segment = 'LAM' ORDER BY T2.Consumption ASC LIMIT 1",
-        "compiler_hint": null,
-        "reflective_cot": "The original SQL query attempted to find the customer with the least consumption in 2012 for the LAM segment. However, it did not correctly aggregate the consumption over the entire year for each customer, which is necessary to determine who had the least consumption. The query also did not filter the data to only include records from 2012. The corrected SQL query groups the data by customer ID and sums the consumption for each customer in 2012. It then orders the results by the total consumption in ascending order and limits the result to the top 1, which will be the customer with the least consumption.",
-        "ground_truth_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'LAM' AND SUBSTR(T2.Date, 1, 4) = '2012' GROUP BY T1.CustomerID ORDER BY SUM(T2.Consumption) ASC LIMIT 1"
-    }
-]

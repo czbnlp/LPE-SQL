@@ -2,6 +2,8 @@ import sys
 import argparse
 import multiprocessing as mp
 from func_timeout import func_timeout, FunctionTimedOut
+from utils import save_data
+
 from evaluation_utils import (
     load_json,
     execute_sql,
@@ -106,6 +108,48 @@ def compute_acc_by_diff(exec_results, diff_json_path):
     )
 
 
+def compute_acc_by_diff(exec_results, diff_json_path, results_path ='./zero.txt', metric="EX"):
+    num_queries = len(exec_results)
+    contents = load_json(diff_json_path)
+    simple_results, moderate_results, challenging_results = [], [], []
+    
+    batch_size = 10
+    for i, content in enumerate(contents):
+        if content["difficulty"] == "simple":
+            simple_results.append(exec_results[i])
+
+        if content["difficulty"] == "moderate":
+            moderate_results.append(exec_results[i])
+
+        if content["difficulty"] == "challenging":
+            try:
+                challenging_results.append(exec_results[i])
+            except:
+                print(i)
+
+        # Process every batch_size examples
+        if (i+1) % batch_size == 0 or i + 1 == num_queries:
+            simple_acc = sum([res["res"] for res in simple_results]) / len(simple_results) if simple_results else 0
+            moderate_acc = sum([res["res"] for res in moderate_results]) / len(moderate_results) if moderate_results else 0
+            challenging_acc = sum([res["res"] for res in challenging_results]) / len(challenging_results) if challenging_results else 0
+            all_acc = sum([res["res"] for res in exec_results[:i+1]]) / (i + 1)
+
+            count_lists = [
+                len(simple_results),
+                len(moderate_results),
+                len(challenging_results),
+                i + 1,
+            ]
+
+            score_lists = [
+                simple_acc * 100,
+                moderate_acc * 100,
+                challenging_acc * 100,
+                all_acc * 100,
+            ]
+
+            save_data(i + 1, results_path, score_lists, count_lists, metric)
+
 if __name__ == "__main__":
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument(
@@ -154,15 +198,20 @@ if __name__ == "__main__":
     )
     exec_result = sort_results(exec_result)
     print("start calculate")
-    simple_acc, moderate_acc, challenging_acc, acc, count_lists = compute_acc_by_diff(
+
+    compute_acc_by_diff(
         exec_result, args.diff_json_path
     )
-    score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
-    print(f"EX for {args.engine} on {args.sql_dialect} set")
-    print("start calculate")
-    print_data(score_lists, count_lists, metric="EX")
-    print(
-        "==========================================================================================="
-    )
-    print(f"Finished EX evaluation for {args.engine} on {args.sql_dialect} set")
-    print("\n\n")
+
+    # simple_acc, moderate_acc, challenging_acc, acc, count_lists = compute_acc_by_diff(
+    #     exec_result, args.diff_json_path
+    # )
+    # score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
+    # print(f"EX for {args.engine} on {args.sql_dialect} set")
+    # print("start calculate")
+    # print_data(score_lists, count_lists, metric="EX")
+    # print(
+    #     "==========================================================================================="
+    # )
+    # print(f"Finished EX evaluation for {args.engine} on {args.sql_dialect} set")
+    # print("\n\n")

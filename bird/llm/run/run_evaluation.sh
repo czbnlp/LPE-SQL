@@ -13,7 +13,7 @@ mode_predict='gpt'
 # Choose the engine to run, e.g. gpt-4, gpt-4-32k, gpt-4-turbo, 
 #  gpt-35-turbo, GPT35-turbo-instruct,meta-llama-3-70b-instruct2,
 # qwen2-72b
-engine='qwen2-72b'
+engine='gpt-35-turbo'
 
 
 # Choose the SQL dialect to run, e.g. SQLite, MySQL, PostgreSQL

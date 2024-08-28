@@ -1,0 +1,1379 @@
+[
+    {
+        "question": "In 2012, who had the least consumption in LAM?",
+        "hint": "Year 2012 can be presented as Between 201201 And 201212; The first 4 strings of the Date values in the yearmonth table can represent year.",
+        "error_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Date BETWEEN '201201' AND '201212' AND T1.Segment = 'LAM' ORDER BY T2.Consumption ASC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'LAM' AND SUBSTR(T2.Date, 1, 4) = '2012' GROUP BY T1.CustomerID ORDER BY SUM(T2.Consumption) ASC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What was the average monthly consumption of customers in SME for the year 2013?",
+        "hint": "Average Monthly consumption = AVG(Consumption) / 12; Year 2013 can be presented as Between 201301 And 201312; The first 4 strings of the Date values in the yearmonth table can represent year.",
+        "error_sql": "SELECT AVG(T2.Consumption) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'SME' AND SUBSTR(T2.Date, 1, 4) = '2013'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT AVG(T2.Consumption) / 12 FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE SUBSTR(T2.Date, 1, 4) = '2013' AND T1.Segment = 'SME'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What was the gas consumption peak month for SME customers in 2013?",
+        "hint": "Year 2013 can be presented as Between 201301 And 201312; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month.",
+        "error_sql": "SELECT Date FROM yearmonth WHERE CustomerID IN ( SELECT CustomerID FROM customers WHERE Segment = 'SME' ) AND Date BETWEEN '201301' AND '201312' ORDER BY Consumption DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUBSTR(T2.Date, 5, 2) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE SUBSTR(T2.Date, 1, 4) = '2013' AND T1.Segment = 'SME' GROUP BY SUBSTR(T2.Date, 5, 2) ORDER BY SUM(T2.Consumption) DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the difference in the annual average consumption of the customers with the least amount of consumption paid in CZK for 2013 between SME and LAM, LAM and KAM, and KAM and SME?",
+        "hint": "annual average consumption of customer with the lowest consumption in each segment = total consumption per year / the number of customer with lowest consumption in each segment; Difference in annual average = SME's annual average - LAM's annual average; Difference in annual average = LAM's annual average - KAM's annual average; Year 2013 can be presented as Between 201301 And 201312; The first 4 strings of the Date values in the yearmonth table can represent year.",
+        "error_sql": "SELECT \n    (SME - LAM) AS SME_LAM,\n    (LAM - KAM) AS LAM_KAM,\n    (KAM - SME) AS KAM_SME\nFROM (\n    SELECT \n        AVG(IIF(T1.Segment = 'SME', T2.Consumption, NULL)) AS SME,\n        AVG(IIF(T1.Segment = 'LAM', T2.Consumption, NULL)) AS LAM,\n        AVG(IIF(T1.Segment = 'KAM', T2.Consumption, NULL)) AS KAM\n    FROM customers AS T1\n    INNER JOIN yearmonth AS T2\n    ON T1.CustomerID = T2.CustomerID\n    WHERE T1.Currency = 'CZK'\n    AND SUBSTR(T2.Date, 1, 4) = '2013'\n    GROUP BY T1.Segment\n)",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(IIF(T1.Segment = 'SME', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) - CAST(SUM(IIF(T1.Segment = 'LAM', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) , CAST(SUM(IIF(T1.Segment = 'LAM', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) - CAST(SUM(IIF(T1.Segment = 'KAM', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) , CAST(SUM(IIF(T1.Segment = 'KAM', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) - CAST(SUM(IIF(T1.Segment = 'SME', T2.Consumption, 0)) AS REAL) / COUNT(T1.CustomerID) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Currency = 'CZK' AND T2.Consumption = ( SELECT MIN(Consumption) FROM yearmonth ) AND T2.Date BETWEEN 201301 AND 201312",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Which of the three segments\u2014SME, LAM and KAM\u2014has the biggest and lowest percentage increases in consumption paid in EUR between 2012 and 2013?",
+        "hint": "Increase or Decrease = consumption for 2013 - consumption for 2012; Percentage of Increase = (Increase or Decrease / consumption for 2013) * 100%; The first 4 strings of the Date values in the yearmonth table can represent year",
+        "error_sql": "SELECT \n    T1.Segment, \n    MAX(T1.percentage_increase) AS max_percentage_increase, \n    MIN(T1.percentage_increase) AS min_percentage_increase\nFROM \n    (\n    SELECT \n        T2.Segment, \n        ((T3.Consumption - T2.Consumption) / T3.Consumption) * 100 AS percentage_increase\n    FROM \n        (\n        SELECT \n            T1.CustomerID, \n            T1.Segment, \n            SUM(CASE WHEN T2.Date LIKE '2012%' THEN T2.Consumption ELSE 0 END) AS Consumption\n        FROM \n            customers AS T1\n        INNER JOIN \n            yearmonth AS T2\n        ON \n            T1.CustomerID = T2.CustomerID\n        WHERE \n            T1.Currency = 'EUR'\n        GROUP BY \n            T1.CustomerID, \n            T1.Segment\n        ) AS T2\n    INNER JOIN \n        (\n        SELECT \n            T1.CustomerID, \n            SUM(CASE WHEN T2.Date LIKE '2013%' THEN T2.Consumption ELSE 0 END) AS Consumption\n        FROM \n            customers AS T1\n        INNER JOIN \n            yearmonth AS T2\n        ON \n            T1.CustomerID = T2.CustomerID\n        WHERE \n            T1.Currency = 'EUR'\n        GROUP BY \n            T1.CustomerID\n        ) AS T3\n    ON \n        T2.CustomerID = T3.CustomerID\n    ) AS T1\nGROUP BY \n    T1.Segment",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST((SUM(IIF(T1.Segment = 'SME' AND T2.Date LIKE '2013%', T2.Consumption, 0)) - SUM(IIF(T1.Segment = 'SME' AND T2.Date LIKE '2012%', T2.Consumption, 0))) AS FLOAT) * 100 / SUM(IIF(T1.Segment = 'SME' AND T2.Date LIKE '2012%', T2.Consumption, 0)), CAST(SUM(IIF(T1.Segment = 'LAM' AND T2.Date LIKE '2013%', T2.Consumption, 0)) - SUM(IIF(T1.Segment = 'LAM' AND T2.Date LIKE '2012%', T2.Consumption, 0)) AS FLOAT) * 100 / SUM(IIF(T1.Segment = 'LAM' AND T2.Date LIKE '2012%', T2.Consumption, 0)) , CAST(SUM(IIF(T1.Segment = 'KAM' AND T2.Date LIKE '2013%', T2.Consumption, 0)) - SUM(IIF(T1.Segment = 'KAM' AND T2.Date LIKE '2012%', T2.Consumption, 0)) AS FLOAT) * 100 / SUM(IIF(T1.Segment = 'KAM' AND T2.Date LIKE '2012%', T2.Consumption, 0)) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How many more \"discount\" gas stations does the Czech Republic have compared to Slovakia?",
+        "hint": "Czech Republic can be represented as the Country value in gasstations table is 'CZE'; Slovakia can be represented as the Country value in the gasstations table is 'SVK';  Computation of more \"discount\" gas stations= Total no. of discount gas stations in Czech Republic - Total no. of discount gas stations in Slovakia",
+        "error_sql": "SELECT ( SELECT COUNT(GasStationID) FROM gasstations WHERE Country = 'CZE' AND Segment = 'discount' ) - ( SELECT COUNT(GasStationID) FROM gasstations WHERE Country = 'SVK' AND Segment = 'discount' )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(IIF(Country = 'CZE', 1, 0)) - SUM(IIF(Country = 'SVK', 1, 0)) FROM gasstations WHERE Segment = 'Discount'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What is the highest monthly consumption in the year 2012?",
+        "hint": "The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month.",
+        "error_sql": "SELECT MAX(Consumption) FROM yearmonth WHERE SUBSTR(Date, 1, 4) = '2012'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(Consumption) FROM yearmonth WHERE SUBSTR(Date, 1, 4) = '2012' GROUP BY SUBSTR(Date, 5, 2) ORDER BY SUM(Consumption) DESC LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Please list the countries of the gas stations with transactions taken place in June, 2013.",
+        "hint": "June 2013 refers to '201306'; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month;",
+        "error_sql": "SELECT DISTINCT T1.Country \nFROM gasstations AS T1 \nINNER JOIN transactions_1k AS T2 \nON T1.GasStationID = T2.GasStationID \nWHERE T2.Date LIKE '201306%'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T2.Country FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN yearmonth AS T3 ON T1.CustomerID = T3.CustomerID WHERE T3.Date = '201306'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Please list the disparate time of the transactions taken place in the gas stations from chain no. 11.",
+        "hint": "",
+        "error_sql": "SELECT T2.Date, T2.Time FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T2.ChainID = 11",
+        "compiler_hint": "no such column: T2.Time",
+        "reflective_cot": "**Error Analysis and Correction**\n\nThe error in the original SQL query is due to referencing the `Time` column from the `gasstations` table (`T2`), which does not exist. The `Time` column is actually part of the `transactions_1k` table (`T1`).\n\n**Corrected SQL Query**\n\n```sql\nSELECT T1.Date, T1.Time \nFROM transactions_1k AS T1 \nINNER JOIN gasstations AS T2 \nON T1.GasStationID = T2.GasStationID \nWHERE T2.ChainID = 11\n```\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, double-check the column names and their corresponding table aliases to ensure you're referencing the correct columns. Always verify the column names in the table schema before writing your SQL query.",
+        "ground_truth_sql": "SELECT DISTINCT T1.Time FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T2.ChainID = 11",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Among the transactions made in the gas stations in the Czech Republic, how many of them are taken place after 2012/1/1?",
+        "hint": "Czech Republic can be represented as the Country value in the gasstations table is 'CZE'",
+        "error_sql": "SELECT COUNT(T1.TransactionID) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T2.Country = 'CZE' AND T1.Date > '2012/1/1'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.TransactionID) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T2.Country = 'CZE' AND STRFTIME('%Y', T1.Date) >= '2012'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What's the nationality of the customer who spent 548.4 in 2012/8/24?",
+        "hint": "'2012/8/24' can be represented by '2012-08-24'",
+        "error_sql": "SELECT T1.Country FROM gasstations AS T1 INNER JOIN transactions_1k AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN customers AS T3 ON T3.CustomerID = T2.CustomerID WHERE T2.Date = '2012-08-24' AND T2.Amount = 548.4",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.Country FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T1.Date = '2012-08-24' AND T1.Price  = 548.4",
+        "difficulty": "simple"
+    },
+    {
+        "question": "For the customer who paid 634.8 in 2012/8/25, what was the consumption decrease rate from Year 2012 to 2013?",
+        "hint": "'2012/8/24' can be represented by '2012-08-24'; Consumption decrease rate = (consumption_2012 - consumption_2013) / consumption_2012",
+        "error_sql": "SELECT CAST((T1.Consumption - T2.Consumption) AS REAL) / T1.Consumption FROM yearmonth AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Date = '2012-08-24' AND T2.Date = '2013-08-24' AND T1.CustomerID = ( SELECT T3.CustomerID FROM transactions_1k AS T3 WHERE T3.Date = '2012-08-25' AND T3.Amount = 634.8 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(IIF(SUBSTRING(Date, 1, 4) = '2012', Consumption, 0)) - SUM(IIF(SUBSTRING(Date, 1, 4) = '2013', Consumption, 0)) AS FLOAT) / SUM(IIF(SUBSTRING(Date, 1, 4) = '2012', Consumption, 0)) FROM yearmonth WHERE CustomerID = ( SELECT T1.CustomerID FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID WHERE T1.Date = '2012-08-25' AND T1.Price  = 1513.12 )",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "What is the percentage of \"premium\" against the overall segment in Country = \"SVK\"?",
+        "hint": "",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T2.Segment = 'premium' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM gasstations AS T1 INNER JOIN customers AS T2 ON T1.GasStationID = T2.CustomerID WHERE T1.Country = 'SVK'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(IIF(Country = 'SVK' AND Segment = 'Premium', 1, 0)) AS FLOAT) * 100 / SUM(IIF(Country = 'SVK', 1, 0)) FROM gasstations",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What is the amount spent by customer \"38508\" at the gas stations? How much had the customer spent in January 2012?",
+        "hint": "January 2012 refers to the Date value = '201201'",
+        "error_sql": "SELECT SUM(T1.Amount), SUM(CASE WHEN T1.Date LIKE '201201%' THEN T1.Amount ELSE 0 END) FROM transactions_1k AS T1 WHERE T1.CustomerID = 38508",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(T1.Price ) , SUM(IIF(T3.Date = '201201', T1.Price, 0)) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN yearmonth AS T3 ON T1.CustomerID = T3.CustomerID WHERE T1.CustomerID = '38508'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Who is the top spending customer and how much is the average price per single item purchased by this customer? What currency was being used?",
+        "hint": "average price per single item = Total(price) / Total(amount)",
+        "error_sql": "SELECT T1.CustomerID, AVG(T2.Price / T2.Amount), T1.Currency FROM customers AS T1 INNER JOIN transactions_1k AS T2 ON T1.CustomerID = T2.CustomerID GROUP BY T1.CustomerID ORDER BY SUM(T2.Amount * T2.Price) DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.CustomerID, SUM(T2.Price / T2.Amount), T1.Currency FROM customers AS T1 INNER JOIN transactions_1k AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.CustomerID = ( SELECT CustomerID FROM yearmonth ORDER BY Consumption DESC LIMIT 1 ) GROUP BY T2.CustomerID, T1.Currency",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among the events attended by more than 10 members of the Student_Club, how many of them are meetings?",
+        "hint": "meetings events refers to type = 'Meeting'; attended by more than 10 members refers to COUNT(event_id) > 10",
+        "error_sql": "SELECT COUNT(T1.event_id) FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event WHERE T1.type = 'Meeting' GROUP BY T1.event_id HAVING COUNT(T2.link_to_member) > 10",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.event_name FROM event AS T1  INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event GROUP BY T1.event_id  HAVING COUNT(T2.link_to_event) > 10 EXCEPT SELECT T1.event_name  FROM event AS T1  WHERE T1.type = 'Meeting'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "List all the names of events that had an attendance of over 20 students but were not fundraisers.",
+        "hint": "name of events refers to event_name; attendance of over 20 students COUNT(event_id) > 20.",
+        "error_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event WHERE T1.type != 'Fundraiser' GROUP BY T1.event_name HAVING COUNT(T2.link_to_event) > 20",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event GROUP BY T1.event_id HAVING COUNT(T2.link_to_event) > 20 EXCEPT SELECT T1.event_name FROM event AS T1  WHERE T1.type = 'Fundraiser'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Was each expense in October Meeting on October 8, 2019 approved?",
+        "hint": "event_name = 'October Meeting' where event_date = '2019-10-08'; approved = True means expenses was approved; approved = False means expenses was not approved",
+        "error_sql": "SELECT T3.approved FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'October Meeting' AND T1.event_date = '2019-10-08'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.approved FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'October Meeting' AND T1.event_date LIKE '2019-10-08%'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Calculate the difference of the total amount spent in all events by the Student_Club in year 2019 and 2020.",
+        "hint": "The first 4 strings of the event_date values in the event table can represent year; The difference of the total amount spent = SUBTRACT(spent where YEAR(event_date) = 2019, spent where YEAR(event_date) = 2020)",
+        "error_sql": "SELECT SUM(IIF(SUBSTR(event_date, 1, 4) = '2019', T2.spent, 0)) - SUM(IIF(SUBSTR(event_date, 1, 4) = '2020', T2.spent, 0)) FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.type = 'Student_Club'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(CASE WHEN SUBSTR(T1.event_date, 1, 4) = '2019' THEN T2.spent ELSE 0 END) - SUM(CASE WHEN SUBSTR(T1.event_date, 1, 4) = '2020' THEN T2.spent ELSE 0 END) AS num FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the status of the event which bought \"Post Cards, Posters\" on 2019/8/20?",
+        "hint": "'Post Cards, Posters' is an expense description; on 2019/8/20 refers to expense_date = '2019-8-20'; status of event refers to event_status",
+        "error_sql": "SELECT T1.event_status FROM budget AS T1 INNER JOIN expense AS T2 ON T1.budget_id = T2.link_to_budget WHERE T2.expense_description = 'Post Cards, Posters' AND T2.expense_date = '2019-8-20'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.event_status FROM budget AS T1 INNER JOIN expense AS T2 ON T1.budget_id = T2.link_to_budget WHERE T2.expense_description = 'Post Cards, Posters' AND T2.expense_date = '2019-08-20'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "How many times was the budget in Advertisement for \"Yearly Kickoff\" meeting more than \"October Meeting\"?",
+        "hint": "budget in Advertisement refer to category = 'Advertisement' in the budget table; DIVIDE(SUM(amount when event_name = 'Yearly Kickoff'), SUM(amount when event_name = 'October Meeting'))",
+        "error_sql": "SELECT COUNT(*) \nFROM ( \n    SELECT CASE \n        WHEN T1.category = 'Advertisement' AND T2.event_name = 'Yearly Kickoff' THEN T1.amount \n        ELSE NULL \n    END - CASE \n        WHEN T1.category = 'Advertisement' AND T2.event_name = 'October Meeting' THEN T1.amount \n        ELSE NULL \n    END \n    FROM budget AS T1 \n    INNER JOIN event AS T2 \n    ON T1.link_to_event = T2.event_id \n) AS T \nWHERE T IS NOT NULL AND T > 0",
+        "compiler_hint": "no such column: T.T",
+        "reflective_cot": "The error in the SQL query is due to the incorrect aliasing of the calculated column. The corrected SQL query uses the table alias `T` directly in the `WHERE` clause, instead of trying to access a non-existent column `T.T`.\n\n**Tip:** When using a table alias in a subquery, make sure to use the alias directly in the outer query, without trying to access a specific column. This is because the table alias represents the entire result set of the subquery, not a specific column.",
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN T2.event_name = 'Yearly Kickoff' THEN T1.amount ELSE 0 END) AS REAL) / SUM(CASE WHEN T2.event_name = 'October Meeting' THEN T1.amount ELSE 0 END) FROM budget AS T1 INNER JOIN event AS T2 ON T1.link_to_event = T2.event_id WHERE T1.category = 'Advertisement' AND T2.type = 'Meeting'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Which student has been entrusted to manage the budget for the Yearly Kickoff?",
+        "hint": "name of students means the full name; full name refers to first_name, last_name;'Yearly Kickoff' is an event name;",
+        "error_sql": "SELECT T2.first_name, T2.last_name FROM event AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.event_name = 'Yearly Kickoff'",
+        "compiler_hint": "no such column: T1.first_name",
+        "reflective_cot": "**Error Analysis and Correction**\n\nThe error in the original SQL query is due to referencing a non-existent column `first_name` in the `event` table (`T1`). The `first_name` column actually exists in the `member` table (`T2`).\n\n**Corrected SQL Query**\n\n```sql\nSELECT T2.first_name, T2.last_name \nFROM event AS T1 \nINNER JOIN budget AS T3 ON T1.event_id = T3.link_to_event\nINNER JOIN member AS T2 ON T3.link_to_member = T2.member_id \nWHERE T1.event_name = 'Yearly Kickoff'\n```\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, ensure that you reference columns from the correct table aliases. Double-check the table schema and the column names to avoid referencing non-existent columns. In this case, we need to join `event` with `budget` and then `budget` with `member` to get the correct result.",
+        "ground_truth_sql": "SELECT T4.first_name, T4.last_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget INNER JOIN member AS T4 ON T3.link_to_member = T4.member_id WHERE T1.event_name = 'Yearly Kickoff'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which event has the lowest cost?",
+        "hint": "event refers to event_name; lowest cost means MIN(cost)",
+        "error_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T3.cost = ( SELECT MIN(cost) FROM expense )",
+        "compiler_hint": "no such column: T2.link_to_event",
+        "reflective_cot": "**Error Analysis**\n\nThe error occurs because the `expense` table does not have a column named `link_to_event`. Instead, it has a column named `link_to_budget`, which references the `budget` table. The `budget` table, in turn, has a column named `link_to_event` that references the `event` table.\n\n**Corrected SQL**\n\nThe corrected SQL query joins the `event` table with the `budget` table, and then joins the `budget` table with the `expense` table. This allows us to correctly reference the `cost` column in the `expense` table and the `event_name` column in the `event` table.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, make sure to carefully examine the table schema and column names to avoid referencing non-existent columns. Double-check the relationships between tables and use the correct join conditions to ensure that you are referencing the correct columns.",
+        "ground_truth_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget ORDER BY T3.cost LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Did Maya Mclean attend the 'Women's Soccer' event?",
+        "hint": "Maya Mclean is the full name; full name refers to first_name, last_name; 'Women's Soccer' is an event_name",
+        "error_sql": "SELECT CASE WHEN T1.link_to_member IS NOT NULL THEN 'Yes' ELSE 'No' END FROM attendance AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id INNER JOIN event AS T3 ON T1.link_to_event = T3.event_id WHERE T2.first_name = 'Maya' AND T2.last_name = 'Mclean' AND T3.event_name = 'Women''s Soccer'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CASE WHEN T3.event_name = 'Women''s Soccer' THEN 'YES' END AS result FROM member AS T1 INNER JOIN attendance AS T2 ON T1.member_id = T2.link_to_member INNER JOIN event AS T3 ON T2.link_to_event = T3.event_id WHERE T1.first_name = 'Maya' AND T1.last_name = 'Mclean'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Indicate the name of the closed event whose cost has exceeded the budget the most.",
+        "hint": "closed events refers to event_name where status = 'Closed'; exceed the budget the most refers to MIN(remaining) where remaining < 0",
+        "error_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.status = 'Closed' AND T2.remaining = ( SELECT MIN(remaining) FROM budget WHERE remaining < 0 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.event_name FROM budget AS T1 INNER JOIN event AS T2 ON T2.event_id = T1.link_to_event WHERE T1.event_status = 'Closed' AND T1.remaining < 0 ORDER BY T1.remaining LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Identify the type of expenses and their total value approved for 'October Meeting' event.",
+        "hint": "total value refers to SUM(cost); 'October Meeting' is an event name;",
+        "error_sql": "SELECT T3.expense_description, SUM(T3.cost) FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'October Meeting' AND T3.approved = 'Yes' GROUP BY T3.expense_description",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.type, SUM(T3.cost) FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'October Meeting'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "State the category of events were held at MU 215.",
+        "hint": "'MU 215' is the location of event; ",
+        "error_sql": "SELECT type FROM event WHERE location = 'MU 215'",
+        "compiler_hint": "no such column: category",
+        "reflective_cot": "**Error Analysis and Reflection**\n\nThe error in the SQL query is due to referencing a non-existent column `category` in the `event` table. The correct column to reference is `type`, which stores the category of events.\n\n**Corrected SQL Query**\n\n```sql\nSELECT type FROM event WHERE location = 'MU 215'\n```\n\n**Tip to Avoid Similar Mistakes**\n\nAlways verify the column names in the table schema before writing a SQL query. Double-check the column names to ensure they match the actual column names in the table. This simple step can help prevent errors and ensure accurate query results.",
+        "ground_truth_sql": "SELECT DISTINCT T2.category FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.location = 'MU 215'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What are the budget category of the events located at MU 215 and a guest speaker type with a 0 budget spent?",
+        "hint": "budget category refers to category; events located at refers to location; type = 'Guest Speaker'; 0 budget spent refers to spent = 0; ",
+        "error_sql": "SELECT T1.category FROM budget AS T1 INNER JOIN event AS T2 ON T1.link_to_event = T2.event_id WHERE T2.location = 'MU 215' AND T2.type = 'Guest Speaker' AND T1.spent = 0",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T2.category, T1.type FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.location = 'MU 215' AND T2.spent = 0 AND T1.type = 'Guest Speaker'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Write the full name of the member who spent money for water, veggie tray and supplies and include the cost of it.",
+        "hint": "full name refers to first_name, last name; spent money for refers expense description; expense_description = 'Water, Veggie tray, supplies'",
+        "error_sql": "SELECT T1.first_name, T1.last_name, T2.expense_description, T2.cost FROM member AS T1 INNER JOIN expense AS T2 ON T1.member_id = T2.link_to_member WHERE T2.expense_description = 'Water, Veggie tray, supplies'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.first_name, T2.last_name, T1.cost FROM expense AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.expense_description = 'Water, Veggie tray, supplies'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Write the full names of students who received funds on the date of 9/9/2019 and include the amount received.",
+        "hint": "full name refers to first_name, last_name, amount of funds received refers to amount, received funds on date refers to date_received",
+        "error_sql": "SELECT T1.first_name, T1.last_name, T2.amount FROM member AS T1 INNER JOIN income AS T2 ON T1.member_id = T2.link_to_member WHERE T2.date_received = '9/9/2019'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T3.first_name, T3.last_name, T4.amount FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event INNER JOIN member AS T3 ON T3.member_id = T2.link_to_member INNER JOIN income AS T4 ON T4.link_to_member = T3.member_id WHERE T4.date_received = '2019-09-09'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Are there more in-patient or outpatient who were male? What is the deviation in percentage?",
+        "hint": "male refers to SEX = 'M'; in-patient refers to Admission = '+'; outpatient refers to Admission = '-'; percentage = DIVIDE(COUNT(ID) where SEX = 'M' and Admission = '+', COUNT(ID) where SEX\u00a0 = 'M' and Admission = '-')",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.SEX = 'M' AND T1.Admission = '+' THEN 1 ELSE 0 END) AS REAL) * 100 / SUM(CASE WHEN T1.SEX = 'M' AND T1.Admission = '-' THEN 1 ELSE 0 END) - 100 FROM Patient AS T1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN Admission = '+' THEN 1 ELSE 0 END) AS REAL) * 100 / SUM(CASE WHEN Admission = '-' THEN 1 ELSE 0 END) FROM Patient WHERE SEX = 'M'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the ratio of outpatient to inpatient followed up treatment among all the 'SLE' diagnosed patient?",
+        "hint": "'SLE' diagnosed patient means Diagnosis = 'SLE'; inpatient refers to Admission = '+'; outpatient refers to Admission = '-'; calculation =  DIVIDE(COUNT(ID) where Diagnosis = 'SLE' and Admission = '+', COUNT(ID) where Diagnosis = 'SLE' and Admission = '-')",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN Admission = '+' THEN 1 ELSE 0 END) AS REAL) / COUNT(ID) FROM Patient WHERE Diagnosis = 'SLE'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(CASE WHEN Admission = '+' THEN 1.0 ELSE 0 END) / SUM(CASE WHEN Admission = '-' THEN 1 ELSE 0 END) FROM Patient WHERE Diagnosis = 'SLE'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "State the ID and age of patient with positive degree of coagulation.",
+        "hint": "age refers to SUBTRACT(year(current_timestamp), year(Birthday)); positive degree of coagulation refers to RVVT = '+';",
+        "error_sql": "SELECT T1.ID, CAST(STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday) AS INTEGER) AS age FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T2.RVVT = '+'",
+        "compiler_hint": "ambiguous column name: ID",
+        "reflective_cot": "**Error Analysis**\n\nThe error \"ambiguous column name: ID\" occurs because both tables `Patient` and `Examination` have a column named `ID`. When joining these tables, the SQL query doesn't know which `ID` column to refer to.\n\n**Corrected SQL**\n\nThe corrected SQL query specifies the table alias `T1` for the `ID` column, making it clear that we want to select the `ID` from the `Patient` table.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables with common column names, always specify the table alias or name to avoid ambiguity. This can be done by using the `AS` keyword to assign an alias to each table, and then referencing the column using the alias, e.g., `T1.ID` instead of just `ID`.",
+        "ground_truth_sql": "SELECT DISTINCT T1.ID, STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T2.RVVT = '+'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What are the symptoms observed by the youngest patient to ever did a medical examination? Identify their diagnosis.",
+        "hint": "The larger the birthday value, the younger the person is, and vice versa; symptoms observed refers to the symptoms is not NULL",
+        "error_sql": "SELECT T2.Symptoms, T2.Diagnosis FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T1.Birthday = ( SELECT MAX(Birthday) FROM Patient ) AND T2.Symptoms IS NOT NULL",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.Symptoms, T1.Diagnosis FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T2.Symptoms IS NOT NULL ORDER BY T1.Birthday DESC LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "The oldest SJS patient's medical laboratory work was completed on what date, and what age was the patient when they initially arrived at the hospital?",
+        "hint": "The larger the birthday value, the younger the person is, and vice versa; 'SJS' refers to diagnosis; (SUBTRACT(year(`First Date`)), year(Birthday)); age of the patients when they initially arrived at the hospital refers to year(Birthday)",
+        "error_sql": "SELECT T2.Date, (strftime('%Y', T1.`First Date`) - strftime('%Y', T1.Birthday)) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SJS' ORDER BY T1.Birthday DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.Date, STRFTIME('%Y', T2.`First Date`) - STRFTIME('%Y', T2.Birthday),T2.Birthday FROM Laboratory AS T1 INNER JOIN Patient AS T2 ON T1.ID = T2.ID WHERE T2.Diagnosis = 'SJS' AND T2.Birthday IS NOT NULL ORDER BY T2.Birthday ASC LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How many underage patients were examined during the course of the three-year period from 1990 to 1993?",
+        "hint": "underage patients refers to year(Birthday) < 18; three-year period from 1990 to 1993 refers to year(`Examination Date`) between '1990' and '1993'",
+        "error_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', T2.`Examination Date`) BETWEEN '1990' AND '1993' AND STRFTIME('%Y', T1.Birthday) + 18 > STRFTIME('%Y', T2.`Examination Date`)",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', T2.`Examination Date`) BETWEEN '1990' AND '1993' AND STRFTIME('%Y', T2.`Examination Date`) - STRFTIME('%Y', T1.Birthday) < 18",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How old was the patient who had the highest hemoglobin count at the time of the examination, and what is the doctor's diagnosis?",
+        "hint": "How old the patient refers to SUBTRACT(year(`Examination Date`), year(Birthday)); the highest hemoglobin count refers to MAX(HGB)",
+        "error_sql": "SELECT strftime('%J', T1.`Examination Date`) - strftime('%J', T2.Birthday) AS age, T1.Diagnosis FROM Examination AS T1 INNER JOIN Laboratory AS T3 ON T1.ID = T3.ID INNER JOIN Patient AS T2 ON T1.ID = T2.ID ORDER BY T3.HGB DESC LIMIT 1",
+        "compiler_hint": "no such column: T1.HGB",
+        "reflective_cot": "**Error Reflection:**\n\nThe error occurred because the column `HGB` (Hemoglobin) is not present in the `Examination` table (`T1`). Instead, it is located in the `Laboratory` table.\n\n**Corrected SQL:**\n\nTo fix the error, we need to join the `Examination` table with the `Laboratory` table, which contains the `HGB` column. We also need to join the `Patient` table to access the `Birthday` column.\n\n**Tip:**\n\nTo avoid making the same mistake in the future, always verify the table structure and column names before writing a SQL query. Make sure to join the correct tables and use the correct column names to avoid errors.",
+        "ground_truth_sql": "SELECT STRFTIME('%Y', T2.Date) - STRFTIME('%Y', T1.Birthday), T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID ORDER BY T2.HGB DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "For the patient who was diagnosed with SLE on 1994/2/19, what was his/her anti-Cardiolipin antibody concentration status on 1993/11/12?",
+        "hint": "diagnosed with SLE refers to Diagnosis = 'SLE'; 1994/2/19 refers to Description = '1994-02-19'; anti-Cardiolipin refers to aCL IgM; 1993/11/12 refers to Examination Date = '1993/11/12'",
+        "error_sql": "SELECT T2.`aCL IgM` FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SLE' AND T1.Description = '1994-02-19' AND T2.`Examination Date` = '1993-11-12'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT `aCL IgA`, `aCL IgG`, `aCL IgM` FROM Examination WHERE ID IN ( SELECT ID FROM Patient WHERE Diagnosis = 'SLE' AND Description = '1994-02-19' ) AND `Examination Date` = '1993-11-12'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "List all patients who were followed up at the outpatient clinic who underwent a laboratory test in October 1991 and had a total blood bilirubin level within the normal range.",
+        "hint": "followed up at the outpatient clinic refers to Admission = '-'; laboratory test in April 1981 refers to Date like '1991-10%'; blood bilirubin level within the normal range refers to T-BIL < 2.0; ",
+        "error_sql": "SELECT T1.ID, T1.SEX, T1.Birthday, T1.Description, T1.`First Date`, T1.Admission, T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Admission = '-' AND T2.Date LIKE '1991-10%' AND T2.`T-BIL` < 2.0",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Admission = '-' AND T2.`T-BIL` < 2.0 AND T2.Date LIKE '1991-10-%'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Was the patient with the number 57266's uric acid within a normal range?",
+        "hint": "uric acid within a normal range refers to UA > 8.0 and SEX = 'M'OR UA > 6.5 and SEX = 'F'",
+        "error_sql": "SELECT CASE WHEN T1.UA > 8.0 AND T2.SEX = 'M' OR T1.UA > 6.5 AND T2.SEX = 'F' THEN 'Yes' ELSE 'No' END FROM Laboratory AS T1 INNER JOIN Patient AS T2 ON T1.ID = T2.ID WHERE T2.ID = 57266",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CASE WHEN (T1.SEX = 'F' AND T2.UA > 6.5) OR (T1.SEX = 'M' AND T2.UA > 8.0) THEN true ELSE false END FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.ID = 57266",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "List and group all patients by sex for total bilirubin (T-BIL) level not within the normal range.",
+        "hint": "List refers to GROUP_CONCAT(DISTINCT ID); total bilirubin (T-BIL) not within normal range refers to T-BIL > = 2.0",
+        "error_sql": "SELECT T1.SEX, GROUP_CONCAT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`T-BIL` >= 2.0 GROUP BY T1.SEX",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.ID,T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`T-BIL` >= 2.0 GROUP BY T1.SEX,T1.ID",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the average age of the male patient with high cholesterol?",
+        "hint": "average age = DIVIDE(SUM(SUBTRACT(YEAR(NOW()), YEAR(birthday))), COUNT(ID)); male patient refers to sex = 'M'; high cholesterol refers to `T-CHO` > = 250;",
+        "error_sql": "SELECT CAST(SUM(STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday)) AS REAL) / COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'M' AND T2.`T-CHO` >= 250",
+        "compiler_hint": "ambiguous column name: ID",
+        "reflective_cot": "**Error Analysis**\n\nThe error \"ambiguous column name: ID\" occurs because the SQL query uses the column name \"ID\" without specifying the table it belongs to. Both tables \"Patient\" and \"Laboratory\" have a column named \"ID\", causing the ambiguity.\n\n**Corrected SQL**\n\nThe corrected SQL query specifies the table names for the columns \"ID\" and \"Birthday\", resolving the ambiguity.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining multiple tables, always specify the table name or alias when referencing columns to avoid ambiguity. This ensures that the SQL query is unambiguous and easier to read.",
+        "ground_truth_sql": "SELECT AVG(STRFTIME('%Y', date('NOW')) - STRFTIME('%Y', T1.Birthday)) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`T-CHO` >= 250 AND T1.SEX = 'M'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "For all patients with triglyceride (TG) level beyond the normal range, how many are age more than 50 years?",
+        "hint": "triglyceride (TG) level beyond the normal range refers to TG > = 200; more than 50 years of age = SUBTRACT(year(current_timestamp), year(Birthday)) > 50; Should consider DISTINCT in the final result;",
+        "error_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.TG >= 200 AND STRFTIME('%J', T1.Birthday) < STRFTIME('%J', DATE('now')) - 50 * 365",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.TG >= 200 AND STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) > 50",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Provide ID, sex and age of patient who has blood glucose (GLU) not within normal range but with total cholesterol(T-CHO) within normal range.",
+        "hint": "age = SUBTRACT(year(current_timestamp), year(Birthday)); blood glucose (GLU) not within normal range refers to GLU > = 180; total cholesterol(T-CHO) within normal range refers to `T-CHO` < 250; ",
+        "error_sql": "SELECT T1.ID, T1.SEX, CAST(STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday) AS REAL) / 365.25 AS Age \nFROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID \nWHERE T2.GLU >= 180 AND T2.`T-CHO` < 250",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.ID, T1.SEX , STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.GLU >= 180 AND T2.`T-CHO` < 250",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "What are the patient's diagnosis for those who has lower red blood blood cell? State their ID and age.",
+        "hint": "patient's diagnosis refers to Diagnosis; lower red blood cell refers to RBC < 3.5; age = SUBTRACT(year(current_timestamp), year(Birthday)); ",
+        "error_sql": "SELECT T1.Diagnosis, T1.ID, CAST(STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday) AS REAL) / 365.25 AS Age FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RBC < 3.5",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.Diagnosis, T1.ID , STRFTIME('%Y', CURRENT_TIMESTAMP) -STRFTIME('%Y', T1.Birthday) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RBC < 3.5",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Name the ID and age of patient with two or more laboratory examinations which show their hematoclit level exceeded the normal range.",
+        "hint": "age = SUBTRACT(year(current_timestamp), year(Birthday)); patient with two or more laboratory examinations refers to COUNT(ID) > 2; hematoclit level exceeded the normal range refers to HCT > = 52;",
+        "error_sql": "SELECT T1.ID, CAST(STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday) AS REAL) / 365.25 AS age \nFROM Patient AS T1 \nINNER JOIN Laboratory AS T2 ON T1.ID = T2.ID \nWHERE T2.HCT >= 52 \nGROUP BY T1.ID, T1.Birthday \nHAVING COUNT(T2.ID) > 2",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.ID, STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.ID IN ( SELECT ID FROM Laboratory WHERE HCT >= 52 GROUP BY ID HAVING COUNT(ID) >= 2 )",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "For patients with abnormal platelet level, state the number of patients with lower than normal range. How is it compare to the number of patients with higher than normal range?",
+        "hint": "abnormal platelet level refers to PLT <= 100 or PLT >= 400; platelet level lower than normal range refers to PLT < 100; calculation = SUBTRACT(SUM(PLT < 100), SUM(PLT > 400)); platelet level higher than normal range refers to PLT > 400;",
+        "error_sql": "SELECT SUM(IIF(PLT < 100, 1, 0)) - SUM(IIF(PLT > 400, 1, 0)) FROM Laboratory",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(CASE WHEN T2.PLT <= 100 THEN 1 ELSE 0 END) - SUM(CASE WHEN T2.PLT >= 400 THEN 1 ELSE 0 END) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "For laboratory examinations take in 1984, list all patients below 50 years old with normal platelet level.",
+        "hint": "laboratory examinations take in 1984 refers to YEAR(Date) = '1984'; below 50 years old = SUBTRACT(year(current_timestamp), year(Birthday)) < 50; normal platelet level refers to PLT between 100 and 400; ",
+        "error_sql": "SELECT T1.ID, T1.SEX, T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', T2.Date) = '1984' AND STRFTIME('%Y', T1.Birthday) < STRFTIME('%Y', 'now') - 50 AND T2.PLT BETWEEN 100 AND 400",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.PLT BETWEEN 100 AND 400 AND STRFTIME('%Y', T2.Date) - STRFTIME('%Y', T1.Birthday) < 50 AND STRFTIME('%Y', T2.Date) = '1984'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "For all patients who are older than 55 years old, what is the percentage of female who has abnormal prothrombin time (PT)?",
+        "hint": "older than 55 years old = SUBTRACT(year(current_timestamp), year(Birthday)) > 55; abnormal prothrombin time (PT) refers to PT > = 14; percentage = DIVIDE(SUM(PT > = 14 AND SEX = 'F'), SUM(PT > = 14)) * 100; female refers to sex = 'F'; ",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T2.PT >= 14 AND T1.SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / SUM(CASE WHEN T2.PT >= 14 THEN 1 ELSE 0 END) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%J', T1.Birthday) < STRFTIME('%J', DATE('now')) - 55 * 365",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN T2.PT >= 14 AND T1.SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(CASE WHEN T2.PT >= 14 THEN 1 ELSE 0 END) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) > 55",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Among the male patients who have a normal level of white blood cells, how many of them have an abnormal fibrinogen level?",
+        "hint": "male patients refers to Sex = 'M'; normal level of white blood cells refers to WBC > 3.5 and WBC <9.0; abnormal fibrinogen level refers to FG < = 150 or FG > = 450; Don't compute repetitive ones.",
+        "error_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'M' AND T2.WBC > 3.5 AND T2.WBC < 9.0 AND (T2.FG <= 150 OR T2.FG >= 450)",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.FG <= 150 OR T2.FG >= 450 AND T2.WBC > 3.5 AND T2.WBC < 9.0 AND T1.SEX = 'M'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How many patients with an Ig G higher than normal?",
+        "hint": "Ig G higher than normal refers to IGG >= 2000; Should consider DISTINCT in the final result;",
+        "error_sql": "SELECT COUNT(DISTINCT ID) FROM Laboratory WHERE IGG >= 2000",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID INNER JOIN Examination AS T3 ON T3.ID = T2.ID WHERE T2.IGG >= 2000",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How many patients with a normal Ig A level came to the hospital after 1990/1/1?",
+        "hint": "normal Ig A level refers to IGA > 80 AND IGA < 500; came to the hospital after 1990/1/1 refers to YEAR(`First Date`) > = 1990;",
+        "error_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.IGA > 80 AND T2.IGA < 500 AND STRFTIME('%Y', T1.`First Date`) >= 1990",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.IGA BETWEEN 80 AND 500 AND  strftime('%Y',  T1.`First Date`) > '1990'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among the patients whose creatinine level is abnormal, how many of them aren't 70 yet?",
+        "hint": "creatinine level is abnormal refers to CRE >= 1.5; aren't 70 yet refers to SUBTRACT((YEAR(CURDATE()), YEAR(Birthday))) < 70; ",
+        "error_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CRE >= 1.5 AND STRFTIME('%J', 'now') - STRFTIME('%J', T1.Birthday) / 365 < 70",
+        "compiler_hint": "ambiguous column name: ID",
+        "reflective_cot": "**Error Analysis:**\nThe error \"ambiguous column name: ID\" occurs because both tables `Patient` and `Laboratory` have a column named `ID`. When joining these tables, the SQL query doesn't know which `ID` column to refer to.\n\n**Corrected SQL:**\nBy specifying the table alias `T1` before `ID`, we explicitly tell the query to use the `ID` column from the `Patient` table (`T1.ID`).\n\n**Tip:**\nWhen joining tables with common column names, always specify the table alias or name before the column name to avoid ambiguity. This ensures that the query knows which column to refer to, preventing errors like this one.",
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CRE >= 1.5 AND STRFTIME('%Y', Date('now')) - STRFTIME('%Y', T1.Birthday) < 70",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How many patients have a normal level of anti-ribonuclear protein and have been admitted to the hospital?",
+        "hint": "normal level of anti-ribonuclear protein refers to RNP = '-', '+-'; And'-' means 'negative'; '+-' refers to '0'; admitted to the hospital refers to Admission = '+'; Should consider DISTINCT in the final result;",
+        "error_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP IN ('-', '+-') AND T1.Admission = '+'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP = 'negative' OR T2.RNP = '0' AND T1.Admission = '+'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among the patients with normal anti-SM, how many of them does not have thrombosis?",
+        "hint": "normal anti-SM refers to SM IN('-', '+-'); SM = 'negative' means '-'; SM = '0' means '+-'; SM = '1' means '+'; does not have thrombosis refers to Thrombosis = 0;",
+        "error_sql": "SELECT COUNT(T1.ID) FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM IN ('-', '0', '+-') AND T1.Thrombosis = 0",
+        "compiler_hint": "no such column: SM",
+        "reflective_cot": "**Error Reflection:**\n\nThe error occurred because the column `SM` is not present in the `Examination` table, but rather in the `Laboratory` table. The query attempted to access `SM` directly from `Examination`, resulting in a \"no such column\" error.\n\n**Corrected SQL:**\n\nThe corrected SQL joins the `Examination` and `Laboratory` tables on the `ID` column, allowing access to the `SM` column in `Laboratory`. This ensures that the query can filter patients with normal anti-SM and no thrombosis.\n\n**Tip:**\n\nTo avoid this mistake, always verify the table schema and ensure that the column you're trying to access exists in the table you're querying. If the column is present in another table, use a JOIN to link the tables and access the column correctly.",
+        "ground_truth_sql": "SELECT COUNT(T1.ID) FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM IN ('negative','0') AND T1.Thrombosis = 0",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among the patients who has a normal level of anti-centromere and a normal level of anti-SSB, how many of them are male?",
+        "hint": "normal level of anti-centromere refers to CENTROMEA IN('-', '+-'); normal level of anti-SSB refers to SSB IN('-', '+-'); male refers to Sex = 'M'; Should consider DISTINCT in the final result;",
+        "error_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CENTROMEA IN ('-', '+-') AND T2.SSB IN ('-', '+-') AND T1.SEX = 'M'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CENTROMEA IN ('negative', '0') AND T2.SSB IN ('negative', '0') AND T1.SEX = 'M'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "For the patients with a normal range of creatinine phosphokinase, how many of them have a positive measure of degree of coagulation?",
+        "hint": "normal range of creatinine phosphokinase refers to CPK < 250; positive measure of degree of coagulation refers to KCT = '+' or RVVT = '+' or LAC = '+' ;",
+        "error_sql": "SELECT COUNT(ID) FROM Laboratory WHERE CPK < 250 AND (KCT = '+' OR RVVT = '+' OR LAC = '+')",
+        "compiler_hint": "unrecognized token: \"'2022-01-01\"",
+        "reflective_cot": "The error in the SQL query is due to the repeated and incorrect use of the `First Date` column, which is not even present in the `Laboratory` table. The query is also missing the conditions for a normal range of creatinine phosphokinase (CPK < 250) and a positive measure of degree of coagulation (KCT = '+' OR RVVT = '+' OR LAC = '+').\n\nTo avoid making the same mistake in the future, always ensure that you are using the correct table and column names, and that your query accurately reflects the conditions you want to apply. Double-check your query for errors and inconsistencies before executing it.\n\nIn this case, the corrected SQL query is:\n\n```sql\nSELECT COUNT(ID) \nFROM Laboratory \nWHERE CPK < 250 AND (KCT = '+' OR RVVT = '+' OR LAC = '+')\n```",
+        "ground_truth_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID INNER JOIN Examination AS T3 ON T1.ID = T3.ID WHERE T2.CPK < 250 AND (T3.KCT = '+' OR T3.RVVT = '+' OR T3.LAC = '+')",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "In Scotland Premier League, which away team won the most during the 2010 season?",
+        "hint": "Final result should return the Team.team_long_name; Scotland Premier League refers to League.name = 'Scotland Premier League'; away team refers to away_team_api_id; away team that won the most refers to MAX(SUBTRACT(away_team_goal, home_team_goal) > 0); 2010 season refers to season = '2009/2010'; won the most refers to MAX(COUNT(*));",
+        "error_sql": "SELECT T1.team_long_name FROM Team AS T1 INNER JOIN Match AS T2 ON T1.team_api_id = T2.away_team_api_id INNER JOIN League AS T3 ON T2.league_id = T3.id WHERE T3.name = 'Scotland Premier League' AND T2.season = '2009/2010' AND T2.away_team_goal > T2.home_team_goal GROUP BY T1.team_long_name ORDER BY COUNT(*) DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT teamInfo.team_long_name FROM League AS leagueData INNER JOIN Match AS matchData ON leagueData.id = matchData.league_id INNER JOIN Team AS teamInfo ON matchData.away_team_api_id = teamInfo.team_api_id WHERE leagueData.name = 'Scotland Premier League' AND matchData.season = '2009/2010' AND matchData.away_team_goal - matchData.home_team_goal > 0 GROUP BY matchData.away_team_api_id ORDER BY COUNT(*) DESC LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "What are the speed in which attacks are put together of the top 4 teams with the highest build Up Play Speed?",
+        "hint": "speed in which attacks are put together refers to buildUpPlaySpeed;highest build up play speed refers to MAX(buildUpPlaySpeed)",
+        "error_sql": "SELECT buildUpPlaySpeed FROM Team_Attributes ORDER BY buildUpPlaySpeed DESC LIMIT 4",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT t1.buildUpPlaySpeed FROM Team_Attributes AS t1 INNER JOIN Team AS t2 ON t1.team_api_id = t2.team_api_id ORDER BY t1.buildUpPlaySpeed ASC LIMIT 4",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Give the name of the league had the most matches end as draw in the 2016 season?",
+        "hint": "most matches end as draw refers to MAX(SUM(home_team_goal = away_team_goal)); 2016 season refers to season = '2015/2016';",
+        "error_sql": "SELECT T1.name FROM League AS T1 INNER JOIN `Match` AS T2 ON T1.id = T2.league_id WHERE T2.season = '2015/2016' AND T2.home_team_goal = T2.away_team_goal ORDER BY T2.id DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT t2.name FROM Match AS t1 INNER JOIN League AS t2 ON t1.league_id = t2.id WHERE t1.season = '2015/2016' AND t1.home_team_goal = t1.away_team_goal GROUP BY t2.name ORDER BY COUNT(t1.id) DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "At present, calculate for the player's age who have a sprint speed of no less than 97 between 2013 to 2015.",
+        "hint": "players age at present = SUBTRACT((DATETIME(), birthday)); sprint speed of no less than 97 refers to sprint_speed > = 97; between 2013 to 2015 refers to YEAR(date) > = '2013' AND YEAR(date) < = '2015'; ",
+        "error_sql": "SELECT CAST((strftime('%J', 'now') - strftime('%J', T1.birthday)) / 365.25 AS INTEGER) FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T2.sprint_speed >= 97 AND T2.date BETWEEN '2013-01-01' AND '2015-12-31'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT DATETIME() - T2.birthday age FROM Player_Attributes AS t1 INNER JOIN Player AS t2 ON t1.player_api_id = t2.player_api_id WHERE STRFTIME('%Y',t1.`date`) >= '2013' AND STRFTIME('%Y',t1.`date`) <= '2015' AND t1.sprint_speed >= 97",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Give the name of the league with the highest matches of all time and how many matches were played in the said league.",
+        "hint": " league with highest matches of all time refers to MAX(COUNT(league_id));",
+        "error_sql": "SELECT T1.name, COUNT(T2.league_id) FROM League AS T1 INNER JOIN Match AS T2 ON T1.id = T2.league_id GROUP BY T1.name ORDER BY COUNT(T2.league_id) DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT t2.name, t1.max_count FROM League AS t2 JOIN (SELECT league_id, MAX(cnt) AS max_count FROM (SELECT league_id, COUNT(id) AS cnt FROM Match GROUP BY league_id) AS subquery) AS t1 ON t1.league_id = t2.id",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "List the long name of teams with above-average build-up play passing in 2012.",
+        "hint": "long name of teams refers to team_long_name; build-up play passing refers to buildUpPlayPassing; above-average build-up play passing = buildUpPlayPassing > DIVIDE(SUM(buildUpPlayPassing), COUNT(team_long_name) WHERE buildUpPlayPassing IS NOT NULL); in 2012 refers to strftime('%Y', date) = '2012'; ",
+        "error_sql": "SELECT team_long_name FROM Team AS T1 INNER JOIN Team_Attributes AS T2 ON T1.team_api_id = T2.team_api_id WHERE T2.buildUpPlayPassing > ( SELECT AVG(buildUpPlayPassing) FROM Team_Attributes WHERE buildUpPlayPassing IS NOT NULL ) AND T2.buildUpPlayPassing IS NOT NULL",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT t4.team_long_name FROM Team_Attributes AS t3 INNER JOIN Team AS t4 ON t3.team_api_id = t4.team_api_id WHERE SUBSTR(t3.`date`, 1, 4) = '2012' AND t3.buildUpPlayPassing > ( SELECT CAST(SUM(t2.buildUpPlayPassing) AS REAL) / COUNT(t1.id) FROM Team AS t1 INNER JOIN Team_Attributes AS t2 ON t1.team_api_id = t2.team_api_id WHERE STRFTIME('%Y',t2.`date`) = '2012')",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "List the top 10 players' names whose heights are above 180 in descending order of average heading accuracy.",
+        "hint": "heights are above 180 refers to Player.height > 180; average heading accuracy = DIVIDE(SUM(heading_accuracy), COUNT(player_fifa_api_id));",
+        "error_sql": "SELECT player_name FROM Player \nJOIN Player_Attributes ON Player.player_api_id = Player_Attributes.player_api_id \nWHERE height > 180 \nORDER BY heading_accuracy DESC \nLIMIT 10",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.height > 180 GROUP BY t1.id ORDER BY CAST(SUM(t2.heading_accuracy) AS REAL) / COUNT(t2.`player_fifa_api_id`) DESC LIMIT 10",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Who has the highest average finishing rate between the highest and shortest football player?",
+        "hint": "finishing rate refers to finishing; highest average finishing rate = MAX(AVG(finishing)); highest football player refers to MAX(height); shortest football player refers to MIN(height);",
+        "error_sql": "SELECT AVG(T1.finishing) FROM Player_Attributes AS T1 INNER JOIN Player AS T2 ON T1.player_api_id = T2.player_api_id WHERE T2.height = ( SELECT MAX(height) FROM Player ) OR T2.height = ( SELECT MIN(height) FROM Player )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT A FROM ( SELECT AVG(finishing) result, 'Max' A FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.height = ( SELECT MAX(height) FROM Player ) UNION SELECT AVG(finishing) result, 'Min' A FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.height = ( SELECT MIN(height) FROM Player ) ) ORDER BY result DESC LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "From 2010 to 2015, what was the average overall rating of players who are higher than 170?",
+        "hint": "from 2010 to 2015 refers to strftime('%Y', date) >= '2010' AND <= '2015'; average overall rating = SUM(t2.overall_rating)/ COUNT(t2.id); higher than 170 refers to Player.height > 170;",
+        "error_sql": "SELECT SUM(T2.overall_rating) / COUNT(T2.id) FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.height > 170 AND strftime('%Y', T2.date) BETWEEN '2010' AND '2015'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(t2.overall_rating) AS REAL) / COUNT(t2.id) FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.height > 170 AND STRFTIME('%Y',t2.`date`) >= '2010' AND STRFTIME('%Y',t2.`date`) <= '2015'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which player is older, Aaron Lennon or Abdelaziz Barrada?",
+        "hint": "The larger the birthday value, the younger the person is, and vice versa;",
+        "error_sql": "SELECT player_name FROM Player WHERE birthday = ( SELECT MIN(birthday) FROM Player WHERE player_name IN ('Aaron Lennon', 'Abdelaziz Barrada') )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT player_name FROM Player WHERE player_name IN ('Aaron Lennon', 'Abdelaziz Barrada') ORDER BY birthday ASC LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Give the name of the league had the most matches in the 2008/2009 season?",
+        "hint": "league that had the most matches in the 2008/2009 season refers to MAX(league_name WHERE season = '2008/2009');",
+        "error_sql": "SELECT T1.name FROM League AS T1 INNER JOIN `Match` AS T2 ON T1.id = T2.league_id WHERE T2.season = '2008/2009' GROUP BY T1.name ORDER BY COUNT(T2.id) DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT t1.name FROM League AS t1 JOIN Match AS t2 ON t1.id = t2.league_id WHERE t2.season = '2008/2009' GROUP BY t1.name HAVING COUNT(t2.id) = (SELECT MAX(match_count) FROM (SELECT COUNT(t2.id) AS match_count FROM Match AS t2 WHERE t2.season = '2008/2009' GROUP BY t2.league_id))",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How much higher in percentage is Ariel Borysiuk's overall rating than that of Paulin Puel?",
+        "hint": "how much higher in percentage = MULTIPLY(DIVIDE(SUBTRACT(overall_rating WHERE player_name = 'Ariel Borysiuk', overall_rating WHERE player_name = 'Paulin Puel'), overall_rating WHERE player_name = 'Paulin Puel'), 100);",
+        "error_sql": "SELECT CAST((T1.overall_rating - T2.overall_rating) AS REAL) * 100 / T2.overall_rating \nFROM Player_Attributes AS T1 \nINNER JOIN Player_Attributes AS T2 \nON T1.player_api_id = ( SELECT player_api_id FROM Player WHERE player_name = 'Ariel Borysiuk' ) \nAND T2.player_api_id = ( SELECT player_api_id FROM Player WHERE player_name = 'Paulin Puel' )",
+        "compiler_hint": "no such column: T1.overall_rating",
+        "reflective_cot": "The error encountered in the SQL query is due to referencing the wrong table (`Player`) which does not have an `overall_rating` column. The correct table to reference is `Player_Attributes`.\n\nTo avoid making the same mistake in the future, ensure that you are referencing the correct table that contains the column you are trying to access. In this case, the `overall_rating` column is in the `Player_Attributes` table, not the `Player` table.\n\nAdditionally, the `INNER JOIN` condition was also incorrect. Instead of joining on `player_name`, we should join on `player_api_id` by first selecting the `player_api_id` of the desired players from the `Player` table.",
+        "ground_truth_sql": "SELECT (SUM(CASE WHEN t1.player_name = 'Ariel Borysiuk' THEN t2.overall_rating ELSE 0 END) * 1.0 - SUM(CASE WHEN t1.player_name = 'Paulin Puel' THEN t2.overall_rating ELSE 0 END)) * 100 / SUM(CASE WHEN t1.player_name = 'Paulin Puel' THEN t2.overall_rating ELSE 0 END) FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "When was the first time did Kevin Constant have his highest crossing score? Give the date.",
+        "hint": "Kevin Constant refers to player_name = 'Kevin Constant'; highest crossing score refers to MAX(crossing)",
+        "error_sql": "SELECT date FROM Player_Attributes WHERE player_api_id = ( SELECT player_api_id FROM Player WHERE player_name = 'Kevin Constant' ) ORDER BY crossing DESC LIMIT 1",
+        "compiler_hint": "no such column: player_name",
+        "reflective_cot": "### Reflection on the Error\n\nThe error encountered in the SQL query is due to referencing a non-existent column `player_name` in the `Player_Attributes` table. The `player_name` column is actually located in the `Player` table.\n\n### Corrected SQL\n\nThe corrected SQL query joins the `Player_Attributes` table with the `Player` table to access the `player_name` column. It then selects the `date` when Kevin Constant had his highest crossing score by ordering the results in descending order by `crossing` and limiting the output to the first row.\n\n### Tip to Avoid the Same Mistake\n\nTo avoid making the same mistake in the future, always verify the table schema and column names before writing a SQL query. Make sure to reference the correct table and column names to avoid errors. In this case, the correct query involves joining two tables to access the required columns.",
+        "ground_truth_sql": "SELECT `date` FROM ( SELECT t2.crossing, t2.`date` FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_fifa_api_id = t2.player_fifa_api_id WHERE t1.player_name = 'Kevin Constant' ORDER BY t2.crossing DESC) ORDER BY date DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What percentage is Landon Donovan's overall rating higher than Jordan Bowery on 2013/7/12?",
+        "hint": "Landon Donovan's refers to player_name = 'Landon Donovan'; Jordan Bowery refers to player_name = 'Jordan Bowery'; percentage refers to DIVIDE(SUBTRACT(player_name = 'Landon Donovan' overall_rating; player_name = 'Jordan Bowery' overall_rating), player_name = 'Landon Donovan' overall_rating)*100",
+        "error_sql": "SELECT CAST((T1.overall_rating - T2.overall_rating) AS REAL) * 100 / T1.overall_rating \nFROM Player_Attributes AS T1 \nINNER JOIN Player_Attributes AS T2 \nON T1.player_api_id = (SELECT player_api_id FROM Player WHERE player_name = 'Landon Donovan') \nAND T2.player_api_id = (SELECT player_api_id FROM Player WHERE player_name = 'Jordan Bowery') \nWHERE T1.date = '2013/7/12' AND T2.date = '2013/7/12'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT (SUM(CASE WHEN t1.player_name = 'Landon Donovan' THEN t2.overall_rating ELSE 0 END) * 1.0 - SUM(CASE WHEN t1.player_name = 'Jordan Bowery' THEN t2.overall_rating ELSE 0 END)) * 100 / SUM(CASE WHEN t1.player_name = 'Landon Donovan' THEN t2.overall_rating ELSE 0 END) LvsJ_percent FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_fifa_api_id = t2.player_fifa_api_id WHERE SUBSTR(t2.`date`, 1, 10) = '2013-07-12'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "State the name of the most strongest player.",
+        "hint": "strongest players refers to player has MAX(overall_rating)",
+        "error_sql": "SELECT T1.player_name FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id ORDER BY T2.strength DESC LIMIT 1",
+        "compiler_hint": "incomplete input",
+        "reflective_cot": "**Error Analysis**\n\nThe original SQL query is incomplete and does not make sense. It seems to be trying to select a player's API ID from the `Player` table where the `player_api_id` is equal to the string `'Player'`, which is not a valid API ID.\n\n**Corrected SQL**\n\nThe corrected SQL query joins the `Player` table with the `Player_Attributes` table on the `player_api_id` column. It then orders the results by the `strength` column in descending order (i.e., strongest players first) and limits the output to the top result using `LIMIT 1`.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, make sure to:\n\n1. Clearly define what you want to achieve.\n2. Use meaningful table aliases (e.g., `T1` and `T2`) to avoid confusion.\n3. Join tables correctly using `INNER JOIN` or other join types as needed.\n4. Use `ORDER BY` and `LIMIT` to filter and rank results as desired.\n5. Test your query with sample data to ensure it produces the expected output.\n\nBy following these steps, you can avoid making similar mistakes and write effective SQL queries.",
+        "ground_truth_sql": "SELECT DISTINCT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t2.overall_rating = (SELECT MAX(overall_rating) FROM Player_Attributes)",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Please provide top four football players' IDs who are among the lowest potential players and prefer to use the right foot when attacking.",
+        "hint": "lowest potential players refers to MIN(potential); prefer to use the right foot when attacking refers to preferred_foot = 'right'",
+        "error_sql": "SELECT player_api_id FROM Player_Attributes WHERE preferred_foot = 'right' ORDER BY potential ASC LIMIT 4",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT id FROM Player_Attributes WHERE preferred_foot = 'right' ORDER BY potential ASC LIMIT 4",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Please state the finishing rate and curve score of the player who has the heaviest weight.",
+        "hint": "finishing rate refer to finishing; curve score refer to curve; heaviest weight refers to MAX(weight)",
+        "error_sql": "SELECT T1.finishing, T1.curve FROM Player_Attributes AS T1 INNER JOIN Player AS T2 ON T1.player_api_id = T2.player_api_id WHERE T2.weight = ( SELECT MAX(weight) FROM Player )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT id, finishing, curve FROM Player_Attributes WHERE player_api_id = ( SELECT player_api_id FROM Player ORDER BY weight DESC LIMIT 1 ) LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What is the percentage of players that are under 180 cm who have an overall strength of more than 70?",
+        "hint": "percentage refers to DIVIDE(COUNT(height < 180 AND overall_rating > 70),COUNT(id)) * 100",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.height < 180 AND T2.strength > 70 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(COUNT(CASE WHEN t2.overall_rating > 70  AND t1.height < 180 THEN t1.id ELSE NULL END) AS REAL) * 100 / COUNT(t1.id) percent FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id ",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Please list the reference names of the drivers who are eliminated in the first period in race number 20.",
+        "hint": "driver reference name refers to driverRef; first qualifying period refers to q1; drivers who are eliminated in the first qualifying period refers to 5 drivers with MAX(q1); race number refers to raceId;",
+        "error_sql": "SELECT T1.driverRef FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId = 20 AND T2.q1 IN ( SELECT MAX(q1) FROM qualifying WHERE raceId = 20 LIMIT 5 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.driverRef FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 20 ORDER BY T1.q1 DESC LIMIT 5",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the surname of the driver with the best lap time in race number 19 in the second qualifying period?",
+        "hint": "race number refers to raceId; second qualifying period refers to q2; best lap time refers to MIN(q2);",
+        "error_sql": "SELECT T1.surname FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId = 19 AND T2.q2 = ( SELECT MIN(q2) FROM qualifying WHERE raceId = 19 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.surname FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 19 ORDER BY T1.q2 ASC LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What is his number of the driver who finished 0:01:54 in the Q3 of qualifying race No.903?",
+        "hint": "race number refers to raceId; finished 0:0M:SS in the Q3 refers to q3 LIKE 'M:SS%'",
+        "error_sql": "SELECT T1.number FROM qualifying AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.raceId = 903 AND T1.q3 LIKE '0:01:54%'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.number FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 903 AND T1.q3 LIKE '1:54%'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Who was the player that got the lap time of 0:01:27 in the race No. 161? Show his introduction website.",
+        "hint": "player and driver are synonyms; the lap time of 0:0M:SS refers to lapTime.time LIKE 'M:SS%';race number refers to raceId; introduction website of the drivers refers to url;",
+        "error_sql": "SELECT T1.url FROM drivers AS T1 INNER JOIN lapTimes AS T2 ON T1.driverId = T2.driverId INNER JOIN qualifying AS T3 ON T1.driverId = T3.driverId WHERE T2.time LIKE '1:27%' AND T3.raceId = 161",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T2.forename, T2.surname, T2.url FROM lapTimes AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 161 AND T1.time LIKE '1:27%'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "In the race No. 45, for the driver who had the Q3 time as 0:01:33, what is his abbreviated code?",
+        "hint": "race number refers to raceId; had the Q3 time as 0:0M:SS refers to q3 LIKE 'M:SS%'",
+        "error_sql": "SELECT T1.code FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId = 45 AND T2.q3 LIKE '0:01:33%'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.code FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 45 AND T1.q3 LIKE '1:33%'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Paul di Resta was in the No. 853 race, what percent faster did he finish in the 853rd race than the next race for the fastest lap speed?",
+        "hint": "Paul di Resta refers to the full name of the driver; Full name of the driver refers to drivers.forename ='Paul' and drivers.surname = 'di Resta'; race number refers to raceId; percentage = DIVIDE(SUBTRACT(fastestLapSpeed(raceId = 853), (fastestLapSpeed (raceId = 854)) * 100 , (fastestLapSpeed(raceId = 853))",
+        "error_sql": "SELECT CAST(((SELECT fastestLapSpeed FROM results WHERE raceId = 853 AND driverId = ( SELECT driverId FROM drivers WHERE forename = 'Paul' AND surname = 'di Resta' )) - (SELECT fastestLapSpeed FROM results WHERE raceId = 854 AND driverId = ( SELECT driverId FROM drivers WHERE forename = 'Paul' AND surname = 'di Resta' ))) * 100.0 / (SELECT fastestLapSpeed FROM results WHERE raceId = 853 AND driverId = ( SELECT driverId FROM drivers WHERE forename = 'Paul' AND surname = 'di Resta' ))) AS REAL)",
+        "compiler_hint": "no such column: T1.driverId",
+        "reflective_cot": "The error encountered in the SQL query is due to the incorrect use of the `SUM` and `CASE` functions, as well as the lack of a clear table reference (`T1`). The query is attempting to calculate a percentage, but it's not correctly structured.\n\nThe corrected SQL query uses subqueries to retrieve the `fastestLapSpeed` values for the specific driver and races, and then calculates the percentage difference.\n\nTip: When writing complex SQL queries, make sure to:\n\n* Clearly define table references (e.g., `T1`, `T2`, etc.)\n* Use the correct functions and syntax for the desired calculation\n* Break down complex calculations into smaller, manageable parts (e.g., subqueries)\n* Test and validate your query to ensure it produces the expected results.",
+        "ground_truth_sql": "SELECT (SUM(IIF(T2.raceId = 853, T2.fastestLapSpeed, 0)) - SUM(IIF(T2.raceId = 854, T2.fastestLapSpeed, 0))) * 100 / SUM(IIF(T2.raceId = 853, T2.fastestLapSpeed, 0)) FROM drivers AS T1 INNER JOIN results AS T2 ON T2.driverId = T1.driverId WHERE T1.forename = 'Paul' AND T1.surname = 'di Resta'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "What is the best lap time recorded? List the driver and race with such recorded lap time.",
+        "hint": "the best lap time refers to min(milliseconds); List the driver refers to drivers.forename and drivers.surname; List the race refers to races.name",
+        "error_sql": "SELECT T3.forename, T3.surname, T2.name FROM lapTimes AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId INNER JOIN drivers AS T3 ON T1.driverId = T3.driverId ORDER BY T1.milliseconds ASC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.milliseconds, T1.forename, T1.surname, T3.name FROM drivers AS T1 INNER JOIN lapTimes AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T2.raceId = T3.raceId ORDER BY T2.milliseconds ASC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the average lap time for Lewis Hamilton in the 2009 Malaysian Grand Prix?",
+        "hint": "average lap time = AVG(milliseconds); 'Lewis Hamilton' refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname; 'Malaysian Grand Prix' refers to races.name = 'Malaysian Grand Prix'",
+        "error_sql": "SELECT AVG(T3.milliseconds) FROM races AS T1 INNER JOIN results AS T2 ON T1.raceId = T2.raceId INNER JOIN drivers AS T3 ON T2.driverId = T3.driverId INNER JOIN lapTimes AS T4 ON T2.raceId = T4.raceId AND T3.driverId = T4.driverId WHERE T1.name = 'Malaysian Grand Prix' AND T3.forename = 'Lewis' AND T3.surname = 'Hamilton'",
+        "compiler_hint": "no such table: lists_users",
+        "reflective_cot": "The error in the SQL query is due to referencing a non-existent table 'lists_users'. The corrected SQL query correctly joins the relevant tables ('races', 'results', 'drivers', and 'lapTimes') to retrieve the average lap time for Lewis Hamilton in the 2009 Malaysian Grand Prix.\n\nTip: Always verify the existence and correct spelling of table names in your database schema before writing SQL queries.",
+        "ground_truth_sql": "SELECT AVG(T2.milliseconds) FROM races AS T1 INNER JOIN lapTimes AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Lewis' AND T3.surname = 'Hamilton' AND T1.year = 2009 AND T1.name = 'Malaysian Grand Prix'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Calculate the percentage whereby Hamilton was not at the 1st track of the the f1 circuit since 2010.",
+        "hint": "percentage = DIVIDE(COUNT(raceId) where surname = 'Hamilton' and position>1), (COUNT(raceId) where surname = 'Hamilton'); since 2010 refers to year >= 2010",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.position > 1 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM results AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T1.raceId = T3.raceId WHERE T2.surname = 'Hamilton' AND T3.year >= 2010",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(COUNT(CASE WHEN T2.position <> 1 THEN T2.position END) AS REAL) * 100 / COUNT(T2.driverStandingsId) FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.surname = 'Hamilton' AND T1.year >= 2010",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How old is the youngest Japanese driver? What is his name?",
+        "hint": "date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa; Japanese refers to nationality = 'Japanese'; age = YEAR(CURRENT_TIMESTAMP) - YEAR(dob);",
+        "error_sql": "SELECT T1.forename, T1.surname, YEAR(CURRENT_TIMESTAMP) - YEAR(T1.dob) AS age FROM drivers AS T1 WHERE T1.nationality = 'Japanese' ORDER BY T1.dob DESC LIMIT 1",
+        "compiler_hint": "no such function: YEAR",
+        "reflective_cot": "### Reflection on the Error\n\nThe error encountered in the SQL query is due to the use of the `YEAR()` function, which is not a valid function in SQLite. SQLite does not have a built-in `YEAR()` function to extract the year from a date.\n\n### Corrected SQL\n\nTo correct this error, we can use the `STRFTIME()` function in SQLite, which can be used to extract the year from a date. Here's the corrected SQL query:\n\n```sql\nSELECT T1.forename, T1.surname, \n       STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.dob) AS age \nFROM drivers AS T1 \nWHERE T1.nationality = 'Japanese' \nORDER BY T1.dob DESC LIMIT 1\n```\n\n### Tip to Avoid the Same Mistake\n\nWhen working with different SQL databases, make sure to check the documentation for the specific database management system you are using to ensure that the functions you are using are supported. In this case, SQLite uses `STRFTIME()` instead of `YEAR()` to extract the year from a date.",
+        "ground_truth_sql": "SELECT STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', dob), forename , surname FROM drivers WHERE nationality = 'Japanese' ORDER BY dob DESC LIMIT 1",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Which race was Alex Yoong in when he was in track number less than 20?",
+        "hint": "Alex Yoong refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;track number less than 10 refers to position < 20",
+        "error_sql": "SELECT T1.name FROM races AS T1 INNER JOIN results AS T2 ON T1.raceId = T2.raceId INNER JOIN drivers AS T3 ON T2.driverId = T3.driverId WHERE T3.forename = 'Alex' AND T3.surname = 'Yoong' AND T2.position < 20",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.name FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Alex' AND T3.surname = 'Yoong' AND T2.position < 20",
+        "difficulty": "simple"
+    },
+    {
+        "question": "State the race and year of race in which Michael Schumacher had his fastest lap.",
+        "hint": "fastest lap refers to min(milliseconds); Alex Yoong refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;",
+        "error_sql": "SELECT T1.name, T2.year FROM races AS T1 INNER JOIN seasons AS T2 ON T1.year = T2.year WHERE T1.raceId = ( SELECT T3.raceId FROM results AS T3 INNER JOIN drivers AS T4 ON T3.driverId = T4.driverId WHERE T4.forename = 'Michael' AND T4.surname = 'Schumacher' ORDER BY T3.milliseconds ASC LIMIT 1 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.name, T1.year FROM races AS T1 INNER JOIN lapTimes AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Michael' AND T3.surname = 'Schumacher' ORDER BY T2.milliseconds ASC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which was Lewis Hamilton first race? What was his points recorded for his first race event?",
+        "hint": "first race refers to min(Year); Lewis Hamiltonrefers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;",
+        "error_sql": "SELECT T1.year, T1.points FROM results AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId WHERE T2.forename = 'Lewis' AND T2.surname = 'Hamilton' ORDER BY T1.year ASC LIMIT 1",
+        "compiler_hint": "no such column: T1.year",
+        "reflective_cot": "The error in the SQL query is due to the fact that the `year` column is not present in the `results` table. It is actually present in the `races` table.\n\nThe corrected SQL query should be:\n\n```sql\nSELECT T3.year, T1.points \nFROM results AS T1 \nINNER JOIN drivers AS T2 ON T1.driverId = T2.driverId \nINNER JOIN races AS T3 ON T1.raceId = T3.raceId \nWHERE T2.forename = 'Lewis' AND T2.surname = 'Hamilton' \nORDER BY T3.year ASC LIMIT 1\n```\n\nTip: Always ensure that the column you are trying to access is present in the table you are querying. If not, join the required table to access the column.",
+        "ground_truth_sql": "SELECT T1.name, T2.points FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Lewis' AND T3.surname = 'Hamilton' ORDER BY T1.year ASC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which driver ranked the first in the Canadian Grand Prix in 2007? Please give his reference name.",
+        "hint": "reference name refers to driverRef; Canadian Grand Prix refers to races.name = 'Canadian Grand Prix';",
+        "error_sql": "SELECT T1.driverRef FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T2.raceId = T3.raceId WHERE T3.name = 'Canadian Grand Prix' AND T3.year = 2007 AND T2.position = 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.forename, T3.surname, T3.driverRef FROM races AS T1 INNER JOIN results AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T1.name = 'Canadian Grand Prix' AND T2.rank = 1 AND T1.year = 2007",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "In which Formula_1 race did Lewis Hamilton rank the highest?",
+        "hint": "rank the highest refers to min(rank); Lewis Hamilton refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;",
+        "error_sql": "SELECT T3.name \nFROM results AS T1 \nINNER JOIN drivers AS T2 ON T1.driverId = T2.driverId \nINNER JOIN races AS T3 ON T1.raceId = T3.raceId \nWHERE T2.forename = 'Lewis' AND T2.surname = 'Hamilton' \nORDER BY T1.rank ASC \nLIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT name FROM races WHERE raceId IN ( SELECT raceId FROM results WHERE rank = 1 AND driverId = ( SELECT driverId FROM drivers WHERE forename = 'Lewis' AND surname = 'Hamilton' ) )",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How much faster in percentage is the champion than the driver who finished the race last in the 2008 Australian Grand Prix?",
+        "hint": "how much faster in percentage = divide(subtract(incremental time, champion time), last_driver time) * 100; last driver finished time = incremental time + champion time; only champion's finished time is represented by 'HH:MM:SS.mmm'; finished the game refers to time is not null",
+        "error_sql": "SELECT CAST((T1.milliseconds - T2.milliseconds) AS REAL) * 100 / T2.milliseconds FROM results AS T1 INNER JOIN results AS T2 ON T1.raceId = T2.raceId WHERE T1.position = 1 AND T2.position = (SELECT MAX(position) FROM results WHERE raceId = T1.raceId) AND T1.raceId = (SELECT raceId FROM races WHERE name = 'Australian Grand Prix' AND year = 2008)",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "WITH time_in_seconds AS ( SELECT T1.positionOrder, CASE WHEN T1.positionOrder = 1 THEN (CAST(SUBSTR(T1.time, 1, 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, 3, 2) AS REAL) * 60) + CAST(SUBSTR(T1.time, 6) AS REAL) ELSE CAST(SUBSTR(T1.time, 2) AS REAL) END AS time_seconds FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Australian Grand Prix' AND T1.time IS NOT NULL AND T2.year = 2008 ), champion_time AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = 1), last_driver_incremental AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = (SELECT MAX(positionOrder) FROM time_in_seconds) ) SELECT (CAST((SELECT time_seconds FROM last_driver_incremental) AS REAL) * 100) / (SELECT time_seconds + (SELECT time_seconds FROM last_driver_incremental) FROM champion_time)",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Please list the constructor names with 0 points at race 291.",
+        "hint": "race at 291 refers to raceID = 291;",
+        "error_sql": "SELECT T2.name FROM constructorResults AS T1 INNER JOIN constructors AS T2 ON T1.constructorId = T2.constructorId WHERE T1.raceId = 291 AND T1.points = 0",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.name FROM constructorStandings AS T1 INNER JOIN constructors AS T2 on T1.constructorId = T2.constructorId WHERE T1.points = 0 AND T1.raceId = 291",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What is the average time in seconds of champion for each year, before year 1975?",
+        "hint": "only champion's finished time is represented by 'HH:MM:SS.mmm'; finished the game refers to time is not null; before year 1975 refers to year < 1975;",
+        "error_sql": "SELECT AVG(SUBSTR(T1.time, 7, 3) + SUBSTR(T1.time, 4, 2) * 60 + SUBSTR(T1.time, 1, 2) * 3600) AS avg_time, T2.year FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T1.time IS NOT NULL AND T2.year < 1975",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "WITH time_in_seconds AS ( SELECT T2.year, T2.raceId, T1.positionOrder, CASE WHEN T1.positionOrder = 1 THEN (CAST(SUBSTR(T1.time, 1, 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, 3, 2) AS REAL) * 60) + CAST(SUBSTR(T1.time, 6,2) AS REAL )   + CAST(SUBSTR(T1.time, 9) AS REAL)/1000 ELSE 0 END AS time_seconds FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T1.time IS NOT NULL ), champion_time AS ( SELECT year, raceId, time_seconds FROM time_in_seconds WHERE positionOrder = 1 ) SELECT year, AVG(time_seconds) FROM champion_time WHERE year < 1975 GROUP BY year HAVING AVG(time_seconds) IS NOT NULL",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "From 2000 to 2005, what percentage of drivers who were born before 1985 and the lap numbers were over 50?",
+        "hint": "born before 1985 refers to year(dob)<1985; in 2000 to 2005 refers to year between 2000 and 2005; percentage = Divide(COUNT(driverId where year (dob) <1985 and laps >50),COUNT(DriverID where year between 2000 and 2005) *100;",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.dob < '1985' AND T2.laps > 50 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.driverId) FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId IN ( SELECT raceId FROM races WHERE date BETWEEN '2000-01-01' AND '2005-12-31' )",
+        "compiler_hint": "no such function: YEAR",
+        "reflective_cot": "**Error Reflection:**\n\nThe error encountered in the SQL query is due to the use of the `YEAR()` function, which is not a valid SQLite function. SQLite does not support extracting the year from a date using a built-in function.\n\n**Corrected SQL:**\n\nThe corrected SQL query replaces the `YEAR()` function with a date range comparison using the `BETWEEN` operator. This allows the query to filter the results based on the date range between 2000 and 2005.\n\n**Tip:**\n\nTo avoid making the same mistake in the future, always check the documentation for the specific SQL dialect you are using (in this case, SQLite) to ensure that the functions and syntax you are using are supported. Additionally, consider using date range comparisons instead of relying on built-in date functions to extract specific parts of a date.",
+        "ground_truth_sql": "SELECT CAST(SUM(IIF(STRFTIME('%Y', T3.dob) < '1985' AND T1.laps > 50, 1, 0)) AS REAL) * 100 / COUNT(*) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN drivers AS T3 on T1.driverId = T3.driverId WHERE T2.year BETWEEN 2000 AND 2005",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "How many French drivers who obtain the laptime less than 02:00.00?",
+        "hint": "lap time less than 02:00.00 refers to seconds < 120;",
+        "error_sql": "SELECT COUNT(T1.driverId) FROM lapTimes AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId WHERE T2.nationality = 'French' AND T1.milliseconds < 120000",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.driverId) FROM drivers AS T1 INNER JOIN lapTimes AS T2 on T1.driverId = T2.driverId WHERE T1.nationality = 'French' AND (CAST(SUBSTR(T2.time, 1, 2) AS INTEGER) * 60 + CAST(SUBSTR(T2.time, 4, 2) AS INTEGER) + CAST(SUBSTR(T2.time, 7, 2) AS REAL) / 1000) < 120",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "State code numbers of top 3 yougest drivers. How many Netherlandic drivers among them?",
+        "hint": "youngest driver refers to Max (year(dob)); Netherlandic and Dutch refer to the same country",
+        "error_sql": "SELECT T1.code, COUNT(CASE WHEN T1.nationality = 'Dutch' THEN 1 END) FROM drivers AS T1 ORDER BY STRFTIME('%J', T1.dob) DESC LIMIT 3",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(*) FROM ( SELECT T1.nationality FROM drivers AS T1 ORDER BY JULIANDAY(T1.dob) DESC LIMIT 3) AS T3 WHERE T3.nationality = 'Dutch'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How many times the circuits were held in Austria? Please give their location and coordinates.",
+        "hint": "location coordinates refers to (lat,lng); Austria refers to country = 'Austria';",
+        "error_sql": "SELECT COUNT(circuitId), location, lat, lng FROM circuits WHERE country = 'Austria'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT location, lat, lng FROM circuits WHERE country = 'Austria'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "On what year did the youngest driver had his first qualifying race? Also state the name, date and time of the race.",
+        "hint": "date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa; first qualifying race refers to MIN(races.date);",
+        "error_sql": "SELECT T2.year, T3.name, T3.raceId, T3.name, T3.date FROM drivers AS T1 INNER JOIN qualifying AS T3 ON T1.driverId = T3.driverId INNER JOIN races AS T2 ON T3.raceId = T2.raceId WHERE T1.driverId = ( SELECT T1.driverId FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId ORDER BY T1.dob DESC LIMIT 1 )",
+        "compiler_hint": "no such column: T1.year",
+        "reflective_cot": "**Error Analysis**\n\nThe error encountered in the SQL query is due to a mismatch in table aliases. The `year` column is referenced from the `drivers` table (`T1`), but it actually belongs to the `races` table.\n\n**Corrected SQL**\n\nThe corrected SQL query fixes the table aliases by referencing the `year` column from the `races` table (`T2`) and joining the `qualifying` table with the `races` table on the `raceId` column.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries with multiple joins, double-check the table aliases to ensure that you're referencing columns from the correct tables. A simple way to avoid this mistake is to:\n\n* Clearly define the table aliases at the beginning of the query.\n* Verify that each column reference matches the corresponding table alias.\n* Use consistent naming conventions for table aliases to avoid confusion.\n\nBy following these best practices, you can minimize errors and write more accurate SQL queries.",
+        "ground_truth_sql": "SELECT T3.year, T3.name, T3.date, T3.time FROM qualifying AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId INNER JOIN races AS T3 on T1.raceId = T3.raceId WHERE T1.driverId = ( SELECT driverId FROM drivers ORDER BY dob DESC LIMIT 1 ) ORDER BY T3.date ASC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Who is the champion of the Canadian Grand Prix in 2008? Indicate his finish time.",
+        "hint": "Only the time of the champion shows in the format of \"hour: minutes: seconds.millionsecond\";",
+        "error_sql": "SELECT T1.forename, T1.surname, T2.time FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T2.raceId = T3.raceId WHERE T3.name = 'Canadian Grand Prix' AND T3.year = 2008 AND T2.position = 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.time FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Canadian Grand Prix' AND T2.year = 2008 AND T1.time LIKE '_:%:__.___'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the constructor reference name of the champion in the 2009 Singapore Grand Prix? Please give its website.",
+        "hint": "the time of the champion shows in the format of \"minutes: seconds.millionsecond\" in which Max(time); constructor reference name refers to constructorRef; website refers to url",
+        "error_sql": "SELECT T4.constructorRef, T4.url FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId INNER JOIN constructorResults AS T3 ON T1.constructorId = T3.constructorId INNER JOIN constructors AS T4 ON T3.constructorId = T4.constructorId WHERE T2.name = 'Singapore Grand Prix' AND T2.year = 2009 AND T1.time = ( SELECT MIN(T1.time) FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Singapore Grand Prix' AND T2.year = 2009 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.constructorRef, T3.url FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN constructors AS T3 on T1.constructorId = T3.constructorId WHERE T2.name = 'Singapore Grand Prix' AND T2.year = 2009 AND T1.time LIKE '_:%:__.___'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Which constructor scored most points from Monaco Grand Prix between 1980 and 2010? List the score, name and nationality of this team.",
+        "hint": "Monaco Grand Priz refers to the race; race in year between 1980 and 2010",
+        "error_sql": "SELECT T3.points, T2.name, T2.nationality FROM races AS T1 INNER JOIN constructors AS T2 INNER JOIN constructorResults AS T3 ON T1.raceId = T3.raceId AND T2.constructorId = T3.constructorId WHERE T1.name = 'Monaco Grand Prix' AND T1.year BETWEEN 1980 AND 2010 ORDER BY T3.points DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(T1.points), T2.name, T2.nationality FROM constructorResults AS T1 INNER JOIN constructors AS T2 ON T1.constructorId = T2.constructorId INNER JOIN races AS T3 ON T3.raceid = T1.raceid WHERE T3.name = 'Monaco Grand Prix' AND T3.year BETWEEN 1980 AND 2010 GROUP BY T2.name ORDER BY SUM(T1.points) DESC LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "As of the present, what is the full name of the youngest racer? Indicate her nationality and the name of the race to which he/she first joined.",
+        "hint": "full name refers to forename+surname; Youngest racer = MAX(dob)",
+        "error_sql": "SELECT T1.forename, T1.surname, T1.nationality, T3.name FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T2.raceId = T3.raceId WHERE T1.dob = ( SELECT MAX(dob) FROM drivers )",
+        "compiler_hint": "no such column: T2.driverId",
+        "reflective_cot": "**Error Analysis**\n\nThe error occurs because there is no `driverId` column in the `races` table. The `driverId` is actually a foreign key in the `results` table, which references the `drivers` table.\n\n**Corrected SQL**\n\nThe corrected SQL joins the `drivers` table with the `results` table on `driverId`, and then joins the `results` table with the `races` table on `raceId`. This allows us to access the `name` column in the `races` table.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, always verify that the column you're trying to join on exists in both tables. Check the schema or documentation to ensure that the column is present in both tables and that the data types match. This will help you avoid similar errors in the future.\n\nIn this case, the corrected SQL query is:\n\n```sql\nSELECT T1.forename, T1.surname, T1.nationality, T3.name \nFROM drivers AS T1 \nINNER JOIN results AS T2 ON T1.driverId = T2.driverId \nINNER JOIN races AS T3 ON T2.raceId = T3.raceId \nWHERE T1.dob = ( SELECT MAX(dob) FROM drivers )\n```",
+        "ground_truth_sql": "SELECT T1.forename, T1.surname, T1.nationality, T3.name FROM drivers AS T1 INNER JOIN driverStandings AS T2 on T1.driverId = T2.driverId INNER JOIN races AS T3 on T2.raceId = T3.raceId ORDER BY JULIANDAY(T1.dob) DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which top 20 driver created the shortest lap time ever record in a Formula_1 race? Please give them full names.",
+        "hint": "shortest lap time refers to MIN(time); the time format for the shortest lap time is 'MM:SS.mmm' or 'M:SS.mmm'; full name of the driver refers to forename, surname",
+        "error_sql": "SELECT T1.forename, T1.surname FROM drivers AS T1 INNER JOIN lapTimes AS T2 ON T1.driverId = T2.driverId ORDER BY T2.time LIMIT 20",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "WITH lap_times_in_seconds AS (SELECT driverId, (CASE WHEN SUBSTR(time, 1, INSTR(time, ':') - 1) <> '' THEN CAST(SUBSTR(time, 1, INSTR(time, ':') - 1) AS REAL) * 60 ELSE 0 END + CASE WHEN SUBSTR(time, INSTR(time, ':') + 1, INSTR(time, '.') - INSTR(time, ':') - 1) <> '' THEN CAST(SUBSTR(time, INSTR(time, ':') + 1, INSTR(time, '.') - INSTR(time, ':') - 1) AS REAL) ELSE 0 END + CASE WHEN SUBSTR(time, INSTR(time, '.') + 1) <> '' THEN CAST(SUBSTR(time, INSTR(time, '.') + 1) AS REAL) / 1000 ELSE 0 END) AS time_in_seconds FROM lapTimes) SELECT T2.forename, T2.surname, T1.driverId FROM (SELECT driverId, MIN(time_in_seconds) AS min_time_in_seconds FROM lap_times_in_seconds GROUP BY driverId) AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId ORDER BY T1.min_time_in_seconds ASC LIMIT 20",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Please list the lap records for the circuits in Italy.",
+        "hint": "lap record means the fastest time recorded which refers to time",
+        "error_sql": "SELECT T1.name, T2.time FROM circuits AS T1 INNER JOIN lapTimes AS T2 ON T1.circuitId = T2.raceId INNER JOIN races AS T3 ON T2.raceId = T3.raceId WHERE T1.country = 'Italy'",
+        "compiler_hint": "no such column: T3.country",
+        "reflective_cot": "**Error Analysis**\n\nThe error occurs because the `country` column is not present in the `races` table (`T3`). Instead, it is present in the `circuits` table (`T1`).\n\n**Corrected SQL**\n\nThe corrected SQL query joins the `circuits`, `lapTimes`, and `races` tables and filters the results to only include circuits in Italy.\n\n```sql\nSELECT T1.name, T2.time \nFROM circuits AS T1 \nINNER JOIN lapTimes AS T2 ON T1.circuitId = T2.raceId \nINNER JOIN races AS T3 ON T2.raceId = T3.raceId \nWHERE T1.country = 'Italy'\n```\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, double-check the table and column names to ensure they match the actual schema. Verify that the column you're trying to access is present in the correct table. This can be done by reviewing the database schema or using a tool to visualize the schema.",
+        "ground_truth_sql": "WITH fastest_lap_times AS (SELECT T1.raceId, T1.FastestLapTime, (CAST(SUBSTR(T1.FastestLapTime, 1, INSTR(T1.FastestLapTime, ':') - 1) AS REAL) * 60) + (CAST(SUBSTR(T1.FastestLapTime, INSTR(T1.FastestLapTime, ':') + 1, INSTR(T1.FastestLapTime, '.') - INSTR(T1.FastestLapTime, ':') - 1) AS REAL)) + (CAST(SUBSTR(T1.FastestLapTime, INSTR(T1.FastestLapTime, '.') + 1) AS REAL) / 1000) as time_in_seconds FROM results AS T1 WHERE T1.FastestLapTime IS NOT NULL ) SELECT T1.FastestLapTime as lap_record FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN circuits AS T3 on T2.circuitId = T3.circuitId INNER JOIN (SELECT MIN(fastest_lap_times.time_in_seconds) as min_time_in_seconds FROM fastest_lap_times INNER JOIN races AS T2 on fastest_lap_times.raceId = T2.raceId INNER JOIN circuits AS T3 on T2.circuitId = T3.circuitId WHERE T3.country = 'Italy' ) AS T4 ON (CAST(SUBSTR(T1.FastestLapTime, 1, INSTR(T1.FastestLapTime, ':') - 1) AS REAL) * 60) + (CAST(SUBSTR(T1.FastestLapTime, INSTR(T1.FastestLapTime, ':') + 1, INSTR(T1.FastestLapTime, '.') - INSTR(T1.FastestLapTime, ':') - 1) AS REAL)) + (CAST(SUBSTR(T1.FastestLapTime, INSTR(T1.FastestLapTime, '.') + 1) AS REAL) / 1000) = T4.min_time_in_seconds LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Rank heroes published by Marvel Comics by their height in descending order.",
+        "hint": "name refers to superhero_name; the tallest hero refers to MAX(height_cm); published by Marvel Comics refers to publisher_name = 'Marvel Comics'",
+        "error_sql": "SELECT superhero_name FROM superhero WHERE publisher_id = ( SELECT id FROM publisher WHERE publisher_name = 'Marvel Comics' ) ORDER BY height_cm DESC",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT superhero_name, height_cm, RANK() OVER (ORDER BY height_cm DESC) AS HeightRank FROM superhero INNER JOIN publisher ON superhero.publisher_id = publisher.id WHERE publisher.publisher_name = 'Marvel Comics'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Rank superheroes from Marvel Comics by their eye color popularity, starting with the most common color.",
+        "hint": "the superheroes from Marvel Comics refers to publisher_name = 'Marvel Comics'; most common color refers to COUNT(superhero.id) DESC;",
+        "error_sql": "SELECT T1.eye_colour_id, T2.colour, COUNT(T1.id) FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id INNER JOIN publisher AS T3 ON T1.publisher_id = T3.id WHERE T3.publisher_name = 'Marvel Comics' GROUP BY T1.eye_colour_id ORDER BY COUNT(T1.id) DESC",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT colour.colour AS EyeColor, COUNT(superhero.id) AS Count, RANK() OVER (ORDER BY COUNT(superhero.id) DESC) AS PopularityRank FROM superhero INNER JOIN colour ON superhero.eye_colour_id = colour.id INNER JOIN publisher ON superhero.publisher_id = publisher.id WHERE publisher.publisher_name = 'Marvel Comics' GROUP BY colour.colour",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the percentage of superheroes who act in their own self-interest or make decisions based on their own moral code? Indicate how many of the said superheroes were published by Marvel Comics.",
+        "hint": "published by Marvel Comics refers to publisher_name = 'Marvel Comics'; superheroes who act in their own self-interest or make decisions based on their own moral code refers to alignment = 'Bad'; calculation = MULTIPLY(DIVIDE(SUM(alignment = 'Bad); count(id)), 100)",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T2.alignment = 'Bad' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*), COUNT(CASE WHEN T2.alignment = 'Bad' AND T3.publisher_name = 'Marvel Comics' THEN 1 END) FROM superhero AS T1 INNER JOIN alignment AS T2 ON T1.alignment_id = T2.id INNER JOIN publisher AS T3 ON T1.publisher_id = T3.id",
+        "compiler_hint": "no such column: T1.alignment",
+        "reflective_cot": "**Error Reflection**\n\nThe error occurred because the `alignment` column does not exist in the `superhero` table (`T1`). Instead, it exists in the `alignment` table, which is referenced by the `alignment_id` foreign key in the `superhero` table.\n\n**Corrected SQL**\n\nThe corrected SQL joins the `superhero` table with the `alignment` table and the `publisher` table, allowing access to the `alignment` column.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, ensure that you are referencing the correct table alias and column name. Double-check the table schema and the join conditions to avoid mistakes. In this case, the error was resolved by joining the `superhero` table with the `alignment` table and using the correct table alias (`T2`) to access the `alignment` column.",
+        "ground_truth_sql": "SELECT (CAST(COUNT(*) AS REAL) * 100 / (SELECT COUNT(*) FROM superhero)), CAST(SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) AS REAL) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN alignment AS T3 ON T3.id = T1.alignment_id WHERE T3.alignment = 'Bad'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Give the publisher ID of Star Trek.",
+        "hint": "Star Trek is the publisher_name;",
+        "error_sql": "SELECT publisher_id FROM superhero WHERE full_name = 'Star Trek'",
+        "compiler_hint": "no such table: movies",
+        "reflective_cot": "**Error Analysis**\n\nThe error in the SQL query is due to referencing non-existent tables (`movies` and `ratings`) and incorrect column names (`movie_id` and `publisher_name`). The corrected SQL query targets the correct table (`superhero`) and column names (`publisher_id` and `full_name`).\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, ensure that you:\n\n1. Verify the table and column names in your database schema.\n2. Use the correct table and column names in your query.\n\nBy double-checking your schema and query syntax, you can avoid errors caused by referencing non-existent tables or columns.",
+        "ground_truth_sql": "SELECT id FROM publisher WHERE publisher_name = 'Star Trek'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "List down at least five superpowers of male superheroes.",
+        "hint": "male refers to gender = 'Male'; superpowers refers to power_name;",
+        "error_sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id INNER JOIN gender AS T4 ON T1.gender_id = T4.id WHERE T4.gender = 'Male'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T3.id = T2.power_id INNER JOIN gender AS T4 ON T4.id = T1.gender_id WHERE T4.gender = 'Male' LIMIT 5",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Provide the hair colour of the human superhero who is 185 cm tall.",
+        "hint": "185 cm tall refers to height_cm = 185; human superhero refers to race = 'human'; hair colour refers to colour where hair_colour_id = colour.id;",
+        "error_sql": "SELECT T4.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T4 ON T1.hair_colour_id = T4.id WHERE T2.race = 'human' AND T1.height_cm = 185",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T3.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T1.height_cm = 185 AND T2.race = 'Human'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the hero's full name with the highest attribute in strength?",
+        "hint": "highest attribute in strength refers to MAX(attribute_value) WHERE attribute_name = 'strength';",
+        "error_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T2.attribute_id = T3.id WHERE T3.attribute_name = 'strength' ORDER BY T2.attribute_value DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T2.attribute_id = T3.id WHERE T3.attribute_name = 'Strength' ORDER BY T2.attribute_value DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which superhero has the most durability published by Dark Horse Comics?",
+        "hint": "which superhero refers to superhero_name; most durability refers to MAX(attribute_value) WHERE attribute_name = 'durability'; published by Dark Horse Comics refers to publisher_name = 'Dark Horse Comics';",
+        "error_sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN hero_attribute AS T3 ON T1.id = T3.hero_id INNER JOIN attribute AS T4 ON T3.attribute_id = T4.id WHERE T2.publisher_name = 'Dark Horse Comics' AND T4.attribute_name = 'durability' ORDER BY T3.attribute_value DESC LIMIT 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T3.id = T2.attribute_id INNER JOIN publisher AS T4 ON T4.id = T1.publisher_id WHERE T4.publisher_name = 'Dark Horse Comics' AND T3.attribute_name = 'Durability' ORDER BY T2.attribute_value DESC LIMIT 1",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "What is the percentage of blue female superheroes among all female superheroes?",
+        "hint": "percentage = MULTIPLY(DIVIDE(SUM(colour = 'Blue' WHERE gender = 'Female'), COUNT(gender = 'Female')), 100); blue refers to the color = 'Blue' WHERE skin_colour_id = colour.id; female refers to gender = 'Female';",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.gender = 'Female' AND T3.colour = 'Blue' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.gender) FROM gender AS T1 INNER JOIN superhero AS T2 ON T1.id = T2.gender_id INNER JOIN colour AS T3 ON T3.id = T2.skin_colour_id",
+        "compiler_hint": "no such column: T2.colour",
+        "reflective_cot": "**Error Reflection**\n\nThe error occurred because the column `colour` was referenced from the wrong table alias `T2` (superhero table), which does not have a `colour` column. The correct table alias is `T3` (colour table), which is joined with the superhero table on the `skin_colour_id` column.\n\n**Corrected SQL**\n\nThe corrected SQL query correctly references the `colour` column from the `colour` table alias `T3`.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining multiple tables, ensure that you reference columns from the correct table alias. Double-check the table aliases and column names to avoid mixing them up. A good practice is to use meaningful table aliases and to explicitly specify the column names with their corresponding table aliases.",
+        "ground_truth_sql": "SELECT CAST(COUNT(CASE WHEN T3.colour = 'Blue' THEN T1.id ELSE NULL END) AS REAL) * 100 / COUNT(T1.id) FROM superhero AS T1 INNER JOIN gender AS T2 ON T1.gender_id = T2.id INNER JOIN colour AS T3 ON T1.skin_colour_id = T3.id WHERE T2.gender = 'Female'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Calculate the average height for all superhero.",
+        "hint": "average = DIVIDE(SUM(height_cm), COUNT(all heros));",
+        "error_sql": "SELECT AVG(height_cm) FROM superhero",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(height_cm) AS REAL) / COUNT(id) FROM superhero",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Which publisher created more superheroes: DC or Marvel Comics? Find the difference in the number of superheroes.",
+        "hint": "DC refers to publisher_name = 'DC Comics'; Marvel Comics refers to publisher_name = 'Marvel Comics'; difference = SUBTRACT(SUM(publisher_name = 'DC Comics'), SUM(publisher_name = 'Marvel Comics'));",
+        "error_sql": "SELECT ABS(SUM(IIF(T1.publisher_name = 'DC Comics', 1, -1)) - SUM(IIF(T1.publisher_name = 'Marvel Comics', 1, -1))) FROM publisher AS T1 INNER JOIN superhero AS T2 ON T1.id = T2.publisher_id",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(CASE WHEN T2.publisher_name = 'DC Comics' THEN 1 ELSE 0 END) - SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Which user has a higher reputation, Harlan or Jarrod Dixon?",
+        "hint": "\"Harlan\" and \"Jarrod Dixon\" are both DisplayName; highest reputation refers to Max(Reputation)",
+        "error_sql": "SELECT DisplayName FROM users WHERE Reputation = ( SELECT MAX(Reputation) FROM users WHERE DisplayName IN ('Harlan', 'Jarrod Dixon') )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DisplayName FROM users WHERE DisplayName IN ('Harlan', 'Jarrod Dixon') AND Reputation = ( SELECT MAX(Reputation) FROM users WHERE DisplayName IN ('Harlan', 'Jarrod Dixon') )",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How many users last accessed the website after 2014/9/1?",
+        "hint": "last accessed after 2014/9/1 refers to LastAccessDate > '2014-09-01'",
+        "error_sql": "SELECT COUNT(Id) FROM users WHERE LastAccessDate > '2014-09-01'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(Id) FROM users WHERE date(LastAccessDate) > '2014-09-01'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "How many posts does the user csgillespie own?",
+        "hint": "\"csgillespie\" is the DisplayName of user",
+        "error_sql": "SELECT COUNT(Id) FROM posts WHERE OwnerDisplayName = 'csgillespie'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.id) FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T2.DisplayName = 'csgillespie'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "For the user with the display name of \"Tiago Pasqualini\", how many posts did he/she own?",
+        "hint": "\"Tiago Pasqualini\" is the DisplayName;",
+        "error_sql": "SELECT COUNT(Id) FROM posts WHERE OwnerDisplayName = 'Tiago Pasqualini'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.Id) FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T1.DisplayName = 'Tiago Pasqualini'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "For the user No.24, how many times is the number of his/her posts compared to his/her votes?",
+        "hint": "user no. 24 refers to UserId = OwnerUserId = '24'; times of his/her post than votes = Divide (Count(post.Id), Count(votes.Id))",
+        "error_sql": "SELECT CAST(COUNT(T1.Id) AS REAL) / COUNT(T2.Id) FROM posts AS T1 INNER JOIN votes AS T2 ON T1.OwnerUserId = T2.UserId WHERE T1.OwnerUserId = 24",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(COUNT(DISTINCT T2.Id) AS REAL) / COUNT(DISTINCT T1.Id) FROM votes AS T1 INNER JOIN posts AS T2 ON T1.UserId = T2.OwnerUserId WHERE T1.UserId = 24",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Who is the owner of the post titled 'Open source tools for visualizing multi-dimensional data?'",
+        "hint": "'Open source tools for visualizing multi-dimensional data' is the Title of Post; owner refers to DisplayName;",
+        "error_sql": "SELECT DisplayName FROM users WHERE Id = ( SELECT OwnerUserId FROM posts WHERE Title = 'Open source tools for visualizing multi-dimensional data' )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.DisplayName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T1.Title = 'Open source tools for visualizing multi-dimensional data?'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Write all the comments left by users who edited the post titled 'Why square the difference instead of taking the absolute value in standard deviation?'",
+        "hint": "\"Why square the difference instead of taking the absolute value in standard deviation?\" is the Title of post;",
+        "error_sql": "SELECT T1.Text FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id INNER JOIN postHistory AS T3 ON T2.Id = T3.PostId WHERE T2.Title = 'Why square the difference instead of taking the absolute value in standard deviation?'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.Comment FROM posts AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.PostId WHERE T1.Title = 'Why square the difference instead of taking the absolute value in standard deviation?'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which user added a bounty amount of 50 to the post title mentioning variance?",
+        "hint": "bounty amount of 50 refers to BountyAmount = 50; user refers to DisplayName; title mentioning variance refers to Title include 'variance'",
+        "error_sql": "SELECT T3.DisplayName FROM votes AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id INNER JOIN users AS T3 ON T1.UserId = T3.Id WHERE T1.BountyAmount = 50 AND T2.Title LIKE '%variance%'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.DisplayName, T1.Title FROM posts AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.PostId INNER JOIN users AS T3 ON T3.Id = T2.UserId WHERE T2.BountyAmount = 50 AND T1.Title LIKE '%variance%'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Calculate the average view count of each post tagged as 'humor' and list the title and the comment of each post.",
+        "hint": "tagged as  'humor' refers to tag = '<humor>'; comment of the post refers to Text; average view count = AVG(ViewCount)",
+        "error_sql": "SELECT T1.Title, T3.Text, AVG(T1.ViewCount) FROM posts AS T1 INNER JOIN comments AS T3 ON T1.Id = T3.PostId WHERE T1.Tags LIKE '%<humor>%'",
+        "compiler_hint": "no such table: postTags",
+        "reflective_cot": "**Error Analysis**\n\nThe error in the original SQL query is due to the non-existent table `postTags`. The query attempts to join `posts` with `postTags` to filter posts tagged as 'humor'. However, the provided schema does not have a `postTags` table.\n\n**Corrected SQL**\n\nThe corrected SQL query joins `posts` with `comments` and uses the `Tags` column in the `posts` table to filter posts tagged as 'humor'. The `LIKE` operator is used with a wildcard `%` to match the '<humor>' tag within the `Tags` column.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, always verify the existence of tables and columns in the schema before executing the query. Double-check the table and column names to avoid typos and non-existent references.",
+        "ground_truth_sql": "SELECT AVG(T2.ViewCount), T2.Title, T1.Text FROM comments AS T1 INNER JOIN posts AS T2 ON T2.Id = T1.PostId  WHERE T2.Tags = '<humor>' GROUP BY T2.Title, T1.Text ",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "How many users are awarded with more than 5 badges?",
+        "hint": "more than 5 badges refers to Count (Name) > 5; user refers to UserId",
+        "error_sql": "SELECT COUNT(Id) FROM badges GROUP BY UserId HAVING COUNT(Name) > 5",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(UserId) FROM ( SELECT UserId, COUNT(Name) AS num FROM badges GROUP BY UserId ) T WHERE T.num > 5",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Which user have only one post history per post and having at least 1000 views?",
+        "hint": "having at least 1000 view refers to Views > = 1000; user refers to UserId",
+        "error_sql": "SELECT T1.UserId FROM postHistory AS T1 INNER JOIN users AS T2 ON T1.UserId = T2.Id WHERE T2.Views >= 1000 GROUP BY T1.UserId HAVING COUNT(T1.PostId) = 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.UserId FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T2.PostId = T3.Id WHERE T3.ViewCount >= 1000 GROUP BY T2.UserId HAVING COUNT(DISTINCT T2.PostHistoryTypeId) = 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "State all the tags used by Mark Meckes in his posts that doesn't have comments.",
+        "hint": "used by Mark Meckes refers to DisplayName = 'Mark Meckes'; Doen't have comments refers to CommentCount = 0;",
+        "error_sql": "SELECT T3.TagName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id INNER JOIN tags AS T3 ON T1.Tags = T3.TagName WHERE T2.DisplayName = 'Mark Meckes' AND T1.CommentCount = 0",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.Tags FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T3.Id = T2.PostId WHERE T1.DisplayName = 'Mark Meckes' AND T3.CommentCount = 0",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Based on posts posted by Community, calculate the percentage of posts that use the R language.",
+        "hint": "DIVIDE(COUNT(PostId WHERE TagName = 'r')), (COUNT(PostId WHERE DisplayName = 'Community')) as percentage; R language refers to tagname = 'r'",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.TagName = 'r' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T2.Id) FROM tags AS T1 INNER JOIN posts AS T2 ON T1.ExcerptPostId = T2.Id WHERE T2.OwnerDisplayName = 'Community'",
+        "compiler_hint": "no such column: T1.PostId",
+        "reflective_cot": "**Error Reflection**\n\nThe error occurred because the `tags` table does not have a `PostId` column. Instead, it has `ExcerptPostId` and `WikiPostId` columns, which are foreign keys referencing the `posts` table.\n\n**Corrected SQL**\n\nThe corrected SQL query uses `COUNT(T2.Id)` instead of `COUNT(T1.PostId)`, which correctly counts the number of posts made by the Community.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, ensure that you are referencing the correct columns from the correct tables. Double-check the table schema and the join conditions to avoid referencing non-existent columns.",
+        "ground_truth_sql": "SELECT CAST(SUM(IIF(T3.TagName = 'r', 1, 0)) AS REAL) * 100 / COUNT(T1.Id) FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN tags AS T3 ON T3.ExcerptPostId = T2.PostId WHERE T1.DisplayName = 'Community'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Calculate the difference in view count from post posted by Mornington and view count from posts posted by Amos.",
+        "hint": "calculation = SUBTRACT(SUM(ViewCount where DisplayName = 'Mornington'), SUM(ViewCount where DisplayName = 'Amos'));",
+        "error_sql": "SELECT SUM(CASE WHEN T2.DisplayName = 'Mornington' THEN T1.ViewCount ELSE 0 END) - SUM(CASE WHEN T2.DisplayName = 'Amos' THEN T1.ViewCount ELSE 0 END) FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(IIF(T1.DisplayName = 'Mornington', T3.ViewCount, 0)) - SUM(IIF(T1.DisplayName = 'Amos', T3.ViewCount, 0)) AS diff FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T3.Id = T2.PostId",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which is the most valuable post in 2010? Please give its id and the owner's display name.",
+        "hint": "the most valuable post in 2010 refers to MAX(FavoriteCount) where year(CreationDate) = 2010;",
+        "error_sql": "SELECT Id, OwnerDisplayName FROM posts WHERE strftime('%Y', CreaionDate) = '2010' ORDER BY FavoriteCount DESC LIMIT 1",
+        "compiler_hint": "no such column: CreationDate",
+        "reflective_cot": "**Error Reflection:**\n\nThe error encountered in the SQL query is due to a typo in the column name `CreationDate`. The correct column name is `CreaionDate` (note the missing 't'). Additionally, the `LIKE` operator is not suitable for date comparison. Instead, the `strftime` function is used to extract the year from the `CreaionDate` column.\n\n**Corrected SQL:**\n\n```sql\nSELECT Id, OwnerDisplayName \nFROM posts \nWHERE strftime('%Y', CreaionDate) = '2010' \nORDER BY FavoriteCount DESC \nLIMIT 1\n```\n\n**Tip:**\n\nTo avoid making the same mistake in the future, double-check the column names and data types in your database schema before writing SQL queries. Additionally, use the correct functions and operators for date and time comparisons.",
+        "ground_truth_sql": "SELECT T2.OwnerUserId, T1.DisplayName FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE STRFTIME('%Y', T1.CreationDate) = '2010' ORDER BY T2.FavoriteCount DESC LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Identify the total views on the post 'Computer Game Datasets'. Name the user who posted it last time.",
+        "hint": "total views refer to ViewCount; Name the user refers to DisplayName; post 'Computer Game Datasets' refers to Text = 'Computer Game Datasets';",
+        "error_sql": "SELECT T1.ViewCount, T2.DisplayName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T1.Title = 'Computer Game Datasets'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.ViewCount, T3.DisplayName FROM postHistory AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id INNER JOIN users AS T3 ON T2.LastEditorUserId = T3.Id WHERE T1.Text = 'Computer Game Datasets'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Provide the text of the latest 10 comments to the post with the title 'Analysing wind data with R' and the display name of the user who left it.",
+        "hint": "the latest comment refers to MAX(CreationDate);",
+        "error_sql": "SELECT T1.Text, T1.UserDisplayName FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T2.Title = 'Analysing wind data with R' ORDER BY T1.CreationDate DESC LIMIT 10",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T3.Text, T1.DisplayName FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId INNER JOIN comments AS T3 ON T2.Id = T3.PostId WHERE T2.Title = 'Analysing wind data with R' ORDER BY T1.CreationDate DESC LIMIT 10",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among all the posts posted by the most influential user, identify the percentage with a score above 50.",
+        "hint": "The higher reputation the user has the more influence; percentage = DIVIDE(COUNT(stats_posts.Id where Score > 50 and MAX(Reputation))), COUNT(stats_posts.Id where MAX(Reputation));",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T2.Score > 50 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T2.Id) FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T1.Reputation = ( SELECT MAX(Reputation) FROM users )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN T2.Score > 50 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.Id) FROM users T1 INNER JOIN posts T2 ON T1.Id = T2.OwnerUserId INNER JOIN ( SELECT MAX(Reputation) AS max_reputation FROM users ) T3 ON T1.Reputation = T3.max_reputation",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "In posts with 1 comment, how many of the comments have 0 score?",
+        "hint": "in posts with 1 comment refers to CommentCount = 1;",
+        "error_sql": "SELECT COUNT(T1.Id) FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T2.CommentCount = 1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT COUNT(T1.id) FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T2.CommentCount = 1 AND T2.Score = 0",
+        "difficulty": "simple"
+    },
+    {
+        "question": "Which are the cards that have incredibly powerful foils.",
+        "hint": "incredibly poweful foils refers to cardKingdomFoilId is not null AND cardKingdomId is not null",
+        "error_sql": "SELECT * FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT id FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What are the borderless cards available without powerful foils?",
+        "hint": "borderless' refers to borderColor; poweful foils refers to cardKingdomFoilId paired with cardKingdomId AND cardKingdomId is not null",
+        "error_sql": "SELECT name FROM cards WHERE borderColor = 'borderless' AND cardKingdomFoilId IS NULL",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT id FROM cards WHERE borderColor = 'borderless' AND (cardKingdomId IS NULL OR cardKingdomId IS NULL)",
+        "difficulty": "simple"
+    },
+    {
+        "question": "List all the mythic rarity print cards banned in gladiator format.",
+        "hint": "mythic rarity printing refers to rarity = 'mythic'; card banned refers to status = 'Banned'; in gladiator format refers to format = 'gladiator';",
+        "error_sql": "SELECT T1.name FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T2.format = 'gladiator' AND T2.status = 'Banned' AND T1.rarity = 'mythic'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT T1.id FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T2.format = 'gladiator' AND T2.status = 'Banned' AND T1.rarity = 'mythic'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Name the card and artist with the most ruling information. Also state if the card is a promotional printing.",
+        "hint": "with the most ruling information refers to Max(count(rulings.uuid)); the card is the promotional printing refers to isPromo = 1;",
+        "error_sql": "SELECT T1.name, T1.artist, T1.isPromo FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid GROUP BY T1.name, T1.artist, T1.isPromo ORDER BY COUNT(T2.uuid) DESC LIMIT 1",
+        "compiler_hint": "no such column: T2.isPromo",
+        "reflective_cot": "### Reflection on the Error\n\nThe error encountered in the SQL query is due to referencing the `isPromo` column from the `rulings` table (`T2`) instead of the `cards` table (`T1`). The `isPromo` column is actually a part of the `cards` table, not the `rulings` table.\n\n### Corrected SQL\n\nThe corrected SQL query is:\n\n```sql\nSELECT T1.name, T1.artist, T1.isPromo \nFROM cards AS T1 \nINNER JOIN rulings AS T2 \nON T1.uuid = T2.uuid \nGROUP BY T1.name, T1.artist, T1.isPromo \nORDER BY COUNT(T2.uuid) DESC \nLIMIT 1\n```\n\n### Tip to Avoid the Mistake\n\nTo avoid making the same mistake in the future, always double-check the table aliases and column names in your SQL queries. Make sure you are referencing the correct table for each column. A good practice is to use the table alias consistently throughout the query, and to verify the column names against the table schema before executing the query.",
+        "ground_truth_sql": "SELECT T1.name, T1.artist, T1.isPromo FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE T1.isPromo = 1 AND T1.artist = (SELECT artist FROM cards WHERE isPromo = 1 GROUP BY artist HAVING COUNT(DISTINCT uuid) = (SELECT MAX(count_uuid) FROM ( SELECT COUNT(DISTINCT uuid) AS count_uuid FROM cards WHERE isPromo = 1 GROUP BY artist ))) LIMIT 1",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Calculate the percentage of the cards availabe in Chinese Simplified.",
+        "hint": "Chinese Simplified' is the language; percentage = Divide(Sum(id where language = 'Chinese Simplified'), Count(id)) *100",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.language = 'Chinese Simplified' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM foreign_data AS T1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN T2.language = 'Chinese Simplified' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the percentage of Story Spotlight cards that do not have a text box? List them by their ID.",
+        "hint": "Story Spotlight cards that do not have a text box refers to isStorylight = 1 and isTextless = 0; Percentage = DIVIDE(SUM(count(id) where isStorylight = 1 AND isTextless = 0 ), SUM(count(id))) * 100",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.isStorySpotlight = 1 AND T1.isTextless = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id), T1.id FROM cards AS T1",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN isTextless = 0 AND  isStorySpotlight = 1 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM cards",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "How many Brazilian Portuguese translated sets are inside the Commander block?",
+        "hint": "Commander block refer to block = 'Commander'; sets refer to code = setCode; Portuguese refer to language = 'Portuguese (Brasil)'",
+        "error_sql": "SELECT COUNT(T2.setCode) FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T1.block = 'Commander' AND T2.language = 'Portuguese (Brasil)'",
+        "compiler_hint": "no such column: T1.setCode",
+        "reflective_cot": "The error encountered in the SQL query is due to referencing the wrong table alias (`T1`) for the column `setCode` in the `COUNT` function. The correct table alias should be `T2` since `setCode` is a column in the `set_translations` table.\n\nTip: Always ensure that the table alias used in the `SELECT` clause matches the table alias used in the `FROM` clause for the specific column being referenced.",
+        "ground_truth_sql": "SELECT COUNT(T1.id) FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T2.language = 'Portuguese (Brazil)' AND T1.block = 'Commander'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "How many unknown power cards contain info about the triggered ability",
+        "hint": "unknown power cards refers to power is null or power = '*';contain info about the triggered ability refers to text contains 'triggered ability'",
+        "error_sql": "SELECT COUNT(id) FROM cards WHERE power IS NULL OR power = '*' AND text LIKE '%triggered ability%'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT Count(DISTINCT T1.id) FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE (T1.power IS NULL OR T1.power = '*') AND T2.text LIKE '%triggered ability%'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What is the foreign name of the card in French of type Creature, normal layout and black border color, by artist Matthew D. Wilson?",
+        "hint": "in French refers to language = 'French'; black border color refers to borderColor = 'black'",
+        "error_sql": "SELECT T1.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid WHERE T1.language = 'French' AND T2.layout = 'normal' AND T2.borderColor = 'black' AND T2.artist = 'Matthew D. Wilson' AND T1.type = 'Creature'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT name FROM foreign_data WHERE uuid IN ( SELECT uuid FROM cards WHERE types = 'Creature' AND layout = 'normal' AND borderColor = 'black' AND artist = 'Matthew D. Wilson' ) AND language = 'French'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "What language is the set of 180 cards that belongs to the Ravnica block translated into?",
+        "hint": "set of 180 cards refers to baseSetSize = 180",
+        "error_sql": "SELECT T2.translation FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T1.baseSetSize = 180 AND T1.block = 'Ravnica'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT T2.language FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T1.block = 'Ravnica' AND T1.baseSetSize = 180",
+        "difficulty": "simple"
+    },
+    {
+        "question": "What percentage of cards with format commander and legal status do not have a content warning?",
+        "hint": "do not have a content warning refers to hasContentWarning = 0; percentage refers to DIVIDE(COUNT(hasContentWarning = 0),COUNT(ID))*100 where format = 'commander' AND Status = 'legal';",
+        "error_sql": "SELECT CAST(SUM(CASE WHEN T1.hasContentWarning = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T2.format = 'commander' AND T2.status = 'legal'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN T1.hasContentWarning = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T2.format = 'commander' AND T2.status = 'Legal'",
+        "difficulty": "challenging"
+    },
+    {
+        "question": "Which foreign language used by \"A Pedra Fellwar\"?",
+        "hint": "\"A Pedra Fellwar\" refers to name = 'A Pedra Fellwar'",
+        "error_sql": "SELECT T2.language FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.name = 'A Pedra Fellwar'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT DISTINCT language FROM foreign_data WHERE name = 'A Pedra Fellwar'",
+        "difficulty": "simple"
+    },
+    {
+        "question": "For the set of cards with \"Ancestor's Chosen\" in it, is there a Korean version of it?",
+        "hint": "set of cards with \"Ancestor''s Chosen\" in it refers to name = 'Ancestor''s Chosen'; Korean version refers to language = 'Korean'",
+        "error_sql": "SELECT COUNT(*) FROM foreign_data WHERE name = 'Ancestor''s Chosen' AND language = 'Korean'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT IIF(SUM(CASE WHEN T2.language = 'Korean' AND T2.translation IS NOT NULL THEN 1 ELSE 0 END) > 0, 'YES', 'NO') FROM cards AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.setCode WHERE T1.name = 'Ancestor''s Chosen'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Did the set of cards with \"Angel of Mercy\" appear on Magic: The Gathering Online?",
+        "hint": "card set \"Angel of Mercy\" refers to name = 'Angel of Mercy'; appear on Magic: The Gathering Online refers to mtgoCode is NOT NULL and vice versa",
+        "error_sql": "SELECT CASE WHEN T2.mtgoCode IS NOT NULL THEN 'Yes' ELSE 'No' END FROM cards AS T1 INNER JOIN sets AS T2 ON T1.setCode = T2.code WHERE T1.name = 'Angel of Mercy'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT IIF(T2.mtgoCode IS NOT NULL, 'YES', 'NO') FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Angel of Mercy'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Is the set of cards with Adarkar Valkyrie only available outside the United States?",
+        "hint": "card set Adarkar Valkyrie refers to name = 'Adarkar Valkyrie'; isForeignOnly = 1 means only available outside the United States;",
+        "error_sql": "SELECT isForeignOnly FROM sets AS T1 INNER JOIN cards AS T2 ON T1.code = T2.setCode WHERE T2.name = 'Adarkar Valkyrie'",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT IIF(isForeignOnly = 1, 'YES', 'NO') FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Adarkar Valkyrie'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Among the cards with converted mana cost higher than 5 in the set Coldsnap, how many of them have unknown power?",
+        "hint": "card set Coldsnap refers to name = 'Coldsnap'; converted mana cost higher than 5 refers to convertedManaCost > 5; unknown power refers to power = '*' or T1.power is null",
+        "error_sql": "SELECT COUNT(T1.power) FROM cards AS T1 INNER JOIN sets AS T2 ON T1.setCode = T2.code WHERE T2.name = 'Coldsnap' AND T1.convertedManaCost > 5 AND (T1.power = '*' OR T1.power IS NULL)",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "SELECT SUM(CASE WHEN T1.power = '*' OR T1.power IS NULL THEN 1 ELSE 0 END) FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T2.name = 'Coldsnap' AND T1.convertedManaCost > 5",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Please list the Italian text ruling of all the cards in the set Coldsnap.",
+        "hint": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
+        "error_sql": "SELECT T1.text FROM rulings AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid INNER JOIN set_translations AS T3 ON T2.setCode = T3.setCode WHERE T3.translation = 'Coldsnap' AND T3.language = 'Italian'",
+        "compiler_hint": "no such column: T2.uuid",
+        "reflective_cot": "**Error Analysis**\n\nThe error occurs because the `set_translations` table does not have a `uuid` column. Instead, it has a `setCode` column that references the `code` column in the `sets` table. The `uuid` column is actually present in the `cards` table, which is not joined correctly in the original query.\n\n**Corrected SQL**\n\nThe corrected SQL joins the `rulings` table with the `cards` table on the `uuid` column, and then joins the `cards` table with the `set_translations` table on the `setCode` column.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen joining tables, double-check the column names and relationships between tables to ensure that you are joining on the correct columns. Verify that the column you are trying to join on exists in the table you are trying to join with.",
+        "ground_truth_sql": "SELECT DISTINCT T1.text FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian'",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Please list the Italian names of the cards in the set Coldsnap with the highest converted mana cost.",
+        "hint": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'; highest converted mana cost refers to MAX(convertedManaCost)",
+        "error_sql": "SELECT T1.translation FROM set_translations AS T1 INNER JOIN sets AS T2 ON T1.setCode = T2.code INNER JOIN foreign_data AS T3 ON T1.setCode = T3.multiverseid WHERE T2.name = 'Coldsnap' AND T1.language = 'Italian' AND T3.convertedManaCost = ( SELECT MAX(T4.convertedManaCost) FROM foreign_data AS T4 INNER JOIN sets AS T5 ON T4.multiverseid = T5.code WHERE T5.name = 'Coldsnap' )",
+        "compiler_hint": "no such column: T1.name",
+        "reflective_cot": "**Error Analysis**\n\nThe error \"no such column: T1.name\" occurs because the `set_translations` table does not have a column named `name`. Instead, it has a column named `translation` that stores the translated name of the set.\n\n**Corrected SQL**\n\nThe corrected SQL query uses the correct column name `translation` from the `set_translations` table.\n\n**Tip to Avoid Similar Mistakes**\n\nWhen writing SQL queries, always double-check the column names in the tables you are querying. Make sure to use the correct column names to avoid errors like this. You can do this by:\n\n* Checking the table schema before writing the query.\n* Using a SQL client or IDE that provides auto-completion and syntax checking.\n* Verifying the column names in the query against the table schema.\n\nBy following these best practices, you can avoid making similar mistakes and write more accurate and efficient SQL queries.",
+        "ground_truth_sql": "SELECT T2.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian' ORDER BY T2.convertedManaCost DESC",
+        "difficulty": "moderate"
+    },
+    {
+        "question": "Which of the play format has the highest number of banned status? Indicate the play format and the names of all the card meet the condition.",
+        "hint": "play format refers to format; banned status refers to status = 'Banned'; the highest number of banned status refers to MAX(COUNT(status = 'Banned'))",
+        "error_sql": "SELECT T1.format, T2.name FROM legalities AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid WHERE T1.status = 'Banned' AND T1.format = ( SELECT T1.format FROM legalities AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid WHERE T1.status = 'Banned' GROUP BY T1.format ORDER BY COUNT(T1.status) DESC LIMIT 1 )",
+        "compiler_hint": null,
+        "reflective_cot": null,
+        "ground_truth_sql": "WITH MaxBanned AS (SELECT format, COUNT(*) AS count_banned FROM legalities WHERE status = 'Banned' GROUP BY format ORDER BY COUNT(*) DESC LIMIT 1) SELECT T2.format, T1.name FROM cards AS T1 INNER JOIN legalities AS T2 ON T2.uuid = T1.uuid INNER JOIN MaxBanned MB ON MB.format = T2.format WHERE T2.status = 'Banned'",
+        "difficulty": "moderate"
+    }
+]

@@ -25,6 +25,8 @@ def execute_sql(predicted_sql, ground_truth, db_path, sql_dialect, calculate_fun
     ground_truth_res = cursor.fetchall()
     conn.close()
     res = calculate_func(predicted_res, ground_truth_res)
+    print(f"res: {res}; predicted_res: {predicted_res}; ground_truth_res: {ground_truth_res}")
+
     return res
 
 

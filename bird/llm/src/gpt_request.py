@@ -19,6 +19,25 @@ def new_directory(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+import tiktoken
+
+def truncate_prompt(prompt, max_tokens=10000):
+    # 使用p50k_base编码器
+    encoding = tiktoken.get_encoding("p50k_base")
+    
+    # 将prompt编码为tokens
+    tokens = encoding.encode(prompt)
+    
+    # 如果超过了最大token数量，则进行截断
+    if len(tokens) > max_tokens:
+        tokens = tokens[-max_tokens:]
+    
+    # 将截断后的tokens解码回文本
+    truncated_prompt = encoding.decode(tokens)
+    
+    return truncated_prompt
+
+
 @retry_on_timeout(100 ,3)
 def qwen2_generation(prompt):
     messages = [
@@ -26,7 +45,7 @@ def qwen2_generation(prompt):
     ]
     from openai import OpenAI
     client = OpenAI(
-      base_url="http://210.45.70.162:28083/v1/",
+      base_url="http://localhost:28083/v1/",
       api_key="Empty",
     )
     completion = client.chat.completions.create(
@@ -54,7 +73,7 @@ def gpt_generation(prompt):
         stream=False,
         temperature=0,
         max_tokens=1000,
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-0125",
     )
     return chat_completion.choices[0].message.content
 
@@ -62,8 +81,9 @@ def connect_llm(engine, prompt):
     """
     Function to connect to the GPT API and get the response.
     """
-    print("调用LLM")
-    if engine == "qwen2-72b":
+    # print("调用LLM")
+    prompt = truncate_prompt(prompt)
+    if engine == "Llama-3.1-70b":
         result = qwen2_generation(prompt)
     else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
         result = gpt_generation(prompt)
@@ -128,10 +148,12 @@ def worker_function(question_data,retrieval,use_knowledge_base):
     generate the prompt, and collect the GPT response.
     """
     prompt, engine, client, db_path, question, ground_truth,difficulty,knowledge, i = question_data
+    # print(f"common sql prompt: {prompt}\n\n\n")
     sql = connect_llm(engine, prompt)
     cot_prompt = generate_common_prompts_cot(db_path,question,'SQLite',retrieval,sql,knowledge,use_knowledge_base = use_knowledge_base)
+    # print(f"common cot prompt: {cot_prompt}\n\n\n")
+
     cot = connect_llm(engine, cot_prompt)
-    # print(prompt)
     response = reflect(question, sql, db_path,
             connect_llm,(engine, ""),
             retrieval = retrieval, ground_truth = ground_truth,
@@ -150,6 +172,7 @@ def collect_response_from_gpt(
     retrieval,
     ground_truth_list,
     difficulty_list,
+    correct_rate,
     top_k,
     results_path,
     num_threads=3,
@@ -161,10 +184,9 @@ def collect_response_from_gpt(
     os.makedirs(engine_dir, exist_ok=True)
     responses = []
     if use_knowledge_base:
-        for i in tqdm(range(len(question_list)), desc=f"{engine} ; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}"):
+        for i in tqdm(range(len(question_list)), desc=f"{engine} ; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}; correct rate: {correct_rate}"):
             # Generate the task only when needed
-            if i < 160:
-                continue
+
             task = (
                 generate_common_prompts_sql(
                     db_path=db_path_list[i],
@@ -185,7 +207,7 @@ def collect_response_from_gpt(
             )
             # Execute the task immediately
             response = worker_function(task, retrieval,use_knowledge_base)
-            print(f"{i}: {response}")
+            # print(f"{i}: {response}")
             responses.append(response)
             if (i+1) % 10 == 0:
                 correct_set_path = retrieval.correct_set_path
@@ -194,10 +216,10 @@ def collect_response_from_gpt(
                     correct_set_path, mistake_set_path,retrieval
                 )
                 score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
-                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'.txt'
+                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'_rate_'+str(correct_rate)+'.txt'
                 save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
     else:
-        for i in tqdm(range(len(question_list)), desc=f"{engine}; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}"):
+        for i in tqdm(range(len(question_list)), desc=f"{engine}; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}; correct rate: {correct_rate}"):
             # Generate the task only when needed
             task = (
                 generate_hand_prompts_one(
@@ -218,7 +240,7 @@ def collect_response_from_gpt(
             )
             # Execute the task immediately
             response = worker_function(task, retrieval,use_knowledge_base)
-            print(f"{i}: {response}")
+            # print(f"{i}: {response}")
             responses.append(response)
             if (i+1) % 10 == 0:
                 correct_set_path = retrieval.correct_set_path
@@ -227,7 +249,7 @@ def collect_response_from_gpt(
                     correct_set_path, mistake_set_path,retrieval
                 )
                 score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
-                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'.txt'
+                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'_rate_'+str(correct_rate)+'.txt'
                 save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
     return responses
 
@@ -244,6 +266,7 @@ if __name__ == "__main__":
     args_parser.add_argument(
         "--engine", type=str, required=True, default="code-davinci-002"
     )
+    args_parser.add_argument("--correct_rate", type=float)
     args_parser.add_argument("--data_output_path", type=str)
     args_parser.add_argument("--chain_of_thought", type=str)
     args_parser.add_argument("--num_processes", type=int, default=3)
@@ -264,10 +287,9 @@ if __name__ == "__main__":
         datasets=eval_data, db_root_path=args.db_root_path
     )
     assert len(question_list) == len(db_path_list) == len(knowledge_list)
-
-    init_correct_set_path = '/home/chuzhibo/acl/text-to-sql/bird/llm/src/knowledge_base/init_correct_set.json'
+    init_correct_set_path = 'init_correct_set.json'
     retrieval = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
-                                   init_correct_set_path=init_correct_set_path)
+                                   init_correct_set_path=init_correct_set_path,correct_rate=args.correct_rate)
 
     responses = collect_response_from_gpt(
         db_path_list,
@@ -278,6 +300,7 @@ if __name__ == "__main__":
         retrieval,
         ground_truth_list,
         difficulty_list,
+        args.correct_rate,
         args.top_k,
         args.results_path,
         args.num_processes,
@@ -298,6 +321,8 @@ if __name__ == "__main__":
         + str(args.use_knowledge_base)
         + "_"
         + str(args.top_k)
+        + "_rate_"
+        + str(args.correct_rate)
         + ".json"
     )
     generate_sql_file(sql_lst=responses, output_path=output_name)

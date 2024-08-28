@@ -18,11 +18,14 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
         prompt = generate_reflection_prompts_sql(question,sql,error,retrieval=retrieval,knowledge=knowledge,
                                                 use_knowledge_base=use_knowledge_base,
                                                 db_path=db_path)
-        # print("反思的prompt：", prompt)
+        
+        # print("反思 sql prompt：", prompt)
         new_sql = connect_llm(engine, prompt)
         cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,
                                              use_knowledge_base=use_knowledge_base,new_sql=new_sql,
                                              db_path = db_path)
+        # print("反思 cot prompt：", cot_prompt)
+
         reflection_txt = connect_llm(engine, cot_prompt)
         _, error = execute_sql(new_sql, db_path)
 
@@ -36,10 +39,13 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
         if res == 0:
             prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,ground_truth,
                                                     use_knowledge_base=use_knowledge_base,db_path = db_path)
+            # print("反思 ground true sql prompt：", prompt)
             new_sql = connect_llm(engine, prompt)
             cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,
                                                 use_knowledge_base=use_knowledge_base,new_sql=new_sql,
                                                 db_path = db_path,ground_truth=ground_truth)
+            # print("反思 ground true cot prompt：", cot_prompt)
+
             reflection_txt = connect_llm(engine, cot_prompt)
 
     if res == 0:

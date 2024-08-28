@@ -156,6 +156,6 @@ def generate_schema_prompt_sqlite(db_path, num_rows=None):
 
 def generate_schema_prompt(sql_dialect, db_path=None, num_rows=None):
     if sql_dialect == "SQLite":
-        return generate_schema_prompt_sqlite(db_path, num_rows)
+        return "\n### Schema of the database with sample rows and column descriptions:\n"+generate_schema_prompt_sqlite(db_path, num_rows)
     else:
         raise ValueError("Unsupported SQL dialect: {}".format(sql_dialect))

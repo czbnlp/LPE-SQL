@@ -119,7 +119,7 @@ def generate_examples(question, retrieval):
     correct_prompt = '\n\n'.join(
         [
             f"example{index+1}: {{\n" + 
-            '\n'.join([f"{key}: {value}" for key, value in example.items() if key != 'difficulty']) + 
+            '\n'.join([f"## {key}: {value}\n" for key, value in example.items() if key != 'difficulty']) + 
             "\n}"
             for index, example in enumerate(correct_examples)
         ]
@@ -127,17 +127,18 @@ def generate_examples(question, retrieval):
     mistake_prompt = '\n\n'.join(
         [
             f"example{index+1}: {{\n" + 
-            '\n'.join([f"{key}: {value}" for key, value in example.items() if key != 'difficulty']) + 
+            '\n'.join([f"## {key}: {value}\n" for key, value in example.items() if key != 'difficulty']) + 
             "\n}"
             for index, example in enumerate(mistake_examples)
         ]
     )
-    correct_prompt = f"###For your reference, here are some examples of Questions,sql queries, and thought processes related to the Question you're working with\n\n\
+    if correct_prompt!="":
+        correct_prompt = f"\n###For your reference, here are some examples of Questions,sql queries, and thought processes related to the Question you're working with\n\n\
                     {correct_prompt}"
-    
-    mistake_prompt = f"### Below are examples of mistakes you've made before that are similar \
-                    to the question you're about to tackle, so please refer to not making the same mistake!\n\n\
-                    {mistake_prompt}"
+    if mistake_prompt!="":
+        mistake_prompt = f"### Below are examples of mistakes you've made before that are similar \
+                        to the question you're about to tackle, so please refer to not making the same mistake!\n\n\
+                        {mistake_prompt}"
     return correct_prompt+'\n\n'+mistake_prompt
 
 def generate_common_prompts_sql(db_path, question, sql_dialect, retrieval,knowledge=None,use_knowledge_base=None):
@@ -232,13 +233,13 @@ def extract_cot_llm():
 
 
 def generate_reflection_cot(question, old_sql, error, retrieval, knowledge, ground_truth=None, use_knowledge_base=True, db_path=None, new_sql=None):
-    if use_knowledge_base:
-        examples = generate_examples(question, retrieval)
-    else:
-        examples = generate_hand_examples(retrieval.top_k)
+    # if use_knowledge_base:
+    #     examples = generate_examples(question, retrieval)
+    # else:
+    #     examples = generate_hand_examples(retrieval.top_k)
     
-    prompt = examples
-    prompt += "\n### Schema of the database with sample rows and column descriptions:\n"
+    # prompt = examples
+    prompt = ""
     prompt += generate_schema_prompt('SQLite', db_path)
 
     prompt += f"\n\n### Question:\n{question}\n"
@@ -258,11 +259,12 @@ def generate_reflection_cot(question, old_sql, error, retrieval, knowledge, grou
     return prompt
 
 def generate_common_prompts_cot(db_path, question, sql_dialect, retrieval, sql, knowledge=None,use_knowledge_base = None):
-    if use_knowledge_base:
-        examples = generate_examples(question, retrieval)
-    else:
-        examples = generate_hand_examples(retrieval.top_k)
-    prompt = examples
+    # if use_knowledge_base:
+    #     examples = generate_examples(question, retrieval)
+    # else:
+    #     examples = generate_hand_examples(retrieval.top_k)
+    # prompt = examples
+    prompt = ""
     prompt += "\n### Schema of the database with sample rows and column descriptions:\n"
     prompt += generate_schema_prompt(sql_dialect, db_path)
     prompt += f"\n### Question: {question}\n"

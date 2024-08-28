@@ -2,8 +2,8 @@ db_root_path='./data/dev_databases/'
 data_mode='mini_dev' # dev, train, mini_dev
 diff_json_path='./data/mini_dev_sqlite.json' # _sqlite.json, _mysql.json, _postgresql.json
 # Path where the predicted SQL queries are stored
-predicted_sql_path='./exp_result/turbo_output_kg/'
-
+# predicted_sql_path='./exp_result/turbo_output_kg/'
+predicted_sql_path='./exp_result/sql_output_kg/'
 ground_truth_path='./data/'
 num_cpus=16
 meta_time_out=30.0

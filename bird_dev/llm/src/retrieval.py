@@ -6,7 +6,7 @@ import os
 
 class TextToSQLRetriever:
     def __init__(self, top_k, correct_set_path="correct_set.json", mistake_set_path="mistake_set.json",
-                 embedding_model_path="sentence-transformers/all-MiniLM-L6-v2", device="cuda:2",
+                 embedding_model_path="sentence-transformers/all-MiniLM-L6-v2", device="cuda",
                  correct_vectors_path="correct_vectors.npy", mistake_vectors_path="mistake_vectors.npy",engine = 'qwen2-72b',
                  use_knowledge_base = "True",init_correct_set_path = "init_correct_set.json",
                  init_mistake_set_path = "init_mistake_set.json", correct_rate = 0.0):
@@ -27,6 +27,7 @@ class TextToSQLRetriever:
         # 加载correct_set和mistake_set
         self.correct_set = self._load_set_from_json(self.init_correct_set_path) if os.path.exists(self.init_correct_set_path) else []
         self.mistake_set = self._load_set_from_json(self.init_mistake_set_path) if os.path.exists(self.init_mistake_set_path) else []
+        print(len(self.correct_set),len(self.mistake_set))
         self.init_correct_len = len(self.correct_set)
         self.init_mistake_len = len(self.mistake_set)
         # 初始化时检查并加载向量
@@ -76,7 +77,7 @@ class TextToSQLRetriever:
         # print(num_correct_to_retrieve,num_mistakes_to_retrieve)
         correct_examples = self._retrieve_from_vectors(query_vector, self.correct_set, self.correct_vectors,num_correct_to_retrieve) if self.correct_vectors is not None and num_correct_to_retrieve != 0 else []
         mistake_examples = self._retrieve_from_vectors(query_vector, self.mistake_set, self.mistake_vectors,num_mistakes_to_retrieve) if self.mistake_vectors is not None and num_mistakes_to_retrieve != 0 else []
-        # print(f"correct: {num_correct_to_retrieve}; mistake: {num_mistakes_to_retrieve}")
+        print(f"correct: {num_correct_to_retrieve}; mistake: {num_mistakes_to_retrieve}")
         return correct_examples, mistake_examples
 
     def _retrieve_from_vectors(self, query_vector, dataset, vectors, num_k):
@@ -87,8 +88,7 @@ class TextToSQLRetriever:
 
         faiss.normalize_L2(query_vector)
         distances, ann = index.search(query_vector, k=num_k)
-        # print(distances, ann)
-        # print(len(dataset))
+        print(ann[0])
         similar_examples = [dataset[i] for i in ann[0]]
         return similar_examples
 
@@ -127,7 +127,7 @@ class TextToSQLRetriever:
             self._save_set_to_json(self.mistake_set, self.mistake_set_path)
 
     def get_in_context_examples(self, query,correct_rate):
-        if correct_rate:
+        if correct_rate != None:
             self.correct_rate=correct_rate
         correct_examples, mistake_examples = self.retrieve_similar_examples(query)
         return correct_examples, mistake_examples

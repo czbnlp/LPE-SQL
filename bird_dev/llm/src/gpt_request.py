@@ -45,11 +45,11 @@ def qwen2_generation(prompt):
     ]
     from openai import OpenAI
     client = OpenAI(
-      base_url="http://localhost:28083/v1/",
+      base_url="http://localhost:8000/v1/",
       api_key="Empty",
     )
     completion = client.chat.completions.create(
-        model="Qwen2-57B-A14B-Instruct-GPTQ-Int4",
+        model="Llama-3.1-70b",
         messages=messages,
         stream=False,
         temperature=0,
@@ -78,6 +78,7 @@ def gpt_generation(prompt,engine):
     return chat_completion.choices[0].message.content
 
 def connect_llm(engine, prompt):
+    print(prompt)
     """
     Function to connect to the GPT API and get the response.
     """
@@ -147,19 +148,20 @@ def worker_function(question_data,retrieval,use_knowledge_base):
     Function to process each question, set up the client,
     generate the prompt, and collect the GPT response.
     """
-    prompt, engine, client, db_path, question, ground_truth,difficulty,knowledge, i, falg_add = question_data
+    prompt, engine, client, db_path, question, ground_truth,difficulty,knowledge, i, falg_add,correct_rate = question_data
     # print(f"common sql prompt: {prompt}\n\n\n")
     sql = connect_llm(engine, prompt)
     # print(sql)
     cot_prompt = generate_common_prompts_cot(db_path,question,'SQLite',retrieval,sql,knowledge,use_knowledge_base = use_knowledge_base)
     # print(f"common cot prompt: {cot_prompt}\n\n\n")
 
-    cot = connect_llm(engine, cot_prompt)
+    # cot = connect_llm(engine, cot_prompt)
+    cot = ""
     # print(cot)
     sql, res, exec_res = reflect(question, sql, db_path,
             connect_llm,(engine, ""),
             retrieval = retrieval, ground_truth = ground_truth,
-            difficulty = difficulty,cot = cot,knowledge=knowledge,use_knowledge_base = use_knowledge_base,falg_add=falg_add)
+            difficulty = difficulty,cot = cot,knowledge=knowledge,use_knowledge_base = use_knowledge_base,falg_add=falg_add,correct_rate=correct_rate)
 
     # sql = post_process_response(response, db_path)
     return sql, i,res,exec_res
@@ -186,7 +188,9 @@ def collect_response_from_gpt(
     api_key,
     engine,
     sql_dialect,
-    retrieval,
+    retrieval1,
+    retrieval2,
+    retrieval3,
     ground_truth_list,
     difficulty_list,
     correct_rate,
@@ -215,7 +219,7 @@ def collect_response_from_gpt(
                     question=question_list[i],
                     sql_dialect=sql_dialect,
                     knowledge=knowledge_list[i] if knowledge_list else None,
-                    retrieval=retrieval,
+                    retrieval=retrieval1,
                     use_knowledge_base =use_knowledge_base,
                     correct_rate = 1,
                 ),
@@ -227,7 +231,8 @@ def collect_response_from_gpt(
                 difficulty_list[i],
                 knowledge_list[i],
                 i,
-                False
+                True,
+                1, # correct_rate
             )
             # Execute the task immediately
             task2 = (
@@ -236,7 +241,7 @@ def collect_response_from_gpt(
                     question=question_list[i],
                     sql_dialect=sql_dialect,
                     knowledge=knowledge_list[i] if knowledge_list else None,
-                    retrieval=retrieval,
+                    retrieval=retrieval2,
                     use_knowledge_base =use_knowledge_base,
                     correct_rate = 0.5,
                 ),
@@ -248,7 +253,8 @@ def collect_response_from_gpt(
                 difficulty_list[i],
                 knowledge_list[i],
                 i,
-                False
+                True,
+                0.5
             )
             # Execute the task immediately
             task3 = (
@@ -257,7 +263,7 @@ def collect_response_from_gpt(
                     question=question_list[i],
                     sql_dialect=sql_dialect,
                     knowledge=knowledge_list[i] if knowledge_list else None,
-                    retrieval=retrieval,
+                    retrieval=retrieval3,
                     use_knowledge_base =use_knowledge_base,
                     correct_rate = 0,
                 ),
@@ -269,14 +275,15 @@ def collect_response_from_gpt(
                 difficulty_list[i],
                 knowledge_list[i],
                 i,
-                True
+                True,
+                0
             )
 
-            sql1,_,res1,exec_res1 = worker_function(task1, retrieval,use_knowledge_base)
+            sql1,_,res1,exec_res1 = worker_function(task1, retrieval1,use_knowledge_base)
             # print("done1")
-            sql2,_,res2,exec_res2 = worker_function(task2, retrieval,use_knowledge_base)
+            sql2,_,res2,exec_res2 = worker_function(task2, retrieval2,use_knowledge_base)
             # print("done2")
-            sql3,_,res3,exec_res3 = worker_function(task3, retrieval,use_knowledge_base)
+            sql3,_,res3,exec_res3 = worker_function(task3, retrieval3,use_knowledge_base)
             # print("done3")
 
             most_consistent_result = select_most_consistent_result(exec_res1, exec_res2, exec_res3)
@@ -301,22 +308,22 @@ def collect_response_from_gpt(
             with open('./result.txt', 'a') as file:
                 file.write(f"vote res: {res}, res1: {res1}, res2: {res2}, res3: {res3}, difficulty: {difficulty_list[i]}\n")
             
-            if (i+1) % 10 == 0 or i + 1 == 147:
-                simple_acc = sum(simple_results) / len(simple_results) if simple_results else None
-                moderate_acc = sum(moderate_results) / len(moderate_results) if moderate_results else None
-                challenging_acc = sum(challenging_results) / len(challenging_results) if challenging_results else None
-                results = simple_results + moderate_results + challenging_results
+            # if (i+1) % 10 == 0 or i + 1 == 147:
+            #     simple_acc = sum(simple_results) / len(simple_results) *100 if simple_results else None
+            #     moderate_acc = sum(moderate_results) / len(moderate_results) *100 if moderate_results else None
+            #     challenging_acc = sum(challenging_results) / len(challenging_results) *100 if challenging_results else None
+            #     results = simple_results + moderate_results + challenging_results
 
-                acc = sum(results) / len(results) if results else None
-                count_lists = [
-                    len(simple_results),
-                    len(moderate_results),
-                    len(challenging_results),
-                    len(results),
-                ]
-                score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
-                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'_rate_'+str(correct_rate)+'.txt'
-                save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
+            #     acc = sum(results) / len(results) *100 if results else None
+            #     count_lists = [
+            #         len(simple_results),
+            #         len(moderate_results),
+            #         len(challenging_results),
+            #         len(results),
+            #     ]
+            #     score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
+            #     file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'_rate_'+str(correct_rate)+'.txt'
+            #     save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
     else:
         for i in tqdm(range(len(question_list)), desc=f"{engine}; use_knowledge_base: {use_knowledge_base}; top_k:{top_k}; correct rate: {correct_rate}"):
             # Generate the task only when needed
@@ -336,20 +343,15 @@ def collect_response_from_gpt(
                 difficulty_list[i],
                 knowledge_list[i],
                 i,
+                False,
+                0
             )
             # Execute the task immediately
-            response = worker_function(task, retrieval,use_knowledge_base)
+            sql,_,res,exec_res = worker_function(task, retrieval1,use_knowledge_base)
             # print(f"{i}: {response}")
-            responses.append(response)
-            if (i+1) % 10 == 0 or i + 1 == 147:
-                correct_set_path = retrieval.correct_set_path
-                mistake_set_path = retrieval.mistake_set_path
-                simple_acc, moderate_acc, challenging_acc, acc, count_lists = compute_acc_by_diff(
-                    correct_set_path, mistake_set_path,retrieval
-                )
-                score_lists = [simple_acc, moderate_acc, challenging_acc, acc]
-                file_name = str(args.engine) + '_'+str(top_k)+ '_'+str(use_knowledge_base)+'_rate_'+str(correct_rate)+'.txt'
-                save_data(i+1,os.path.join(engine_dir, file_name),score_lists, count_lists, metric="EX")
+            responses.append(sql)
+            with open('./result_4.txt', 'a') as file:
+                file.write(f"vote res: {res}, difficulty: {difficulty_list[i]}\n")
     return responses
 
 
@@ -386,8 +388,12 @@ if __name__ == "__main__":
         datasets=eval_data, db_root_path=args.db_root_path
     )
     assert len(question_list) == len(db_path_list) == len(knowledge_list)
-    retrieval = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
-                                correct_rate=args.correct_rate)
+    retrieval1 = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
+                                correct_rate=0)
+    retrieval2 = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
+                                correct_rate=0.5)
+    retrieval3 = TextToSQLRetriever(args.top_k,engine = args.engine,use_knowledge_base=args.use_knowledge_base,
+                                correct_rate=1.0)
 
     responses = collect_response_from_gpt(
         db_path_list,
@@ -395,7 +401,9 @@ if __name__ == "__main__":
         args.api_key,
         args.engine,
         args.sql_dialect,
-        retrieval,
+        retrieval1,
+        retrieval2,
+        retrieval3,
         ground_truth_list,
         difficulty_list,
         args.correct_rate,

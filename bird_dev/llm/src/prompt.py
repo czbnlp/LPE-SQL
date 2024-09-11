@@ -341,7 +341,7 @@ def generate_instruction_prompt():
 def generate_examples(question, retrieval,correct_rate=None):
     if retrieval.top_k == 0:
         return ""
-    if correct_rate:
+    if correct_rate != None:
         retrieval.correct_rate = correct_rate
     correct_examples, mistake_examples = retrieval.get_in_context_examples(question,correct_rate)
     # print(len(correct_examples),len(mistake_examples))
@@ -398,9 +398,9 @@ def generate_difficulty_prompts(db_path, question, sql_dialect,knowledge=None):
     return combined_prompts
 
 
-def generate_reflection_prompts_sql(question, sql, error, retrieval,knowledge,ground_truth=None,use_knowledge_base=True,db_path=None):
+def generate_reflection_prompts_sql(question, sql, error, retrieval,knowledge,ground_truth=None,use_knowledge_base=True,db_path=None,correct_rate=None):
     if use_knowledge_base:
-        examples = generate_examples(question, retrieval)
+        examples = generate_examples(question, retrieval,correct_rate)
     else:
         examples = generate_hand_examples(retrieval.top_k)
 
@@ -437,7 +437,7 @@ def generate_hand_examples(top_k):
     if top_k == 0:
         return ""
     global few_shot_examples
-    return ''.join([f'example{i+1}: {example}' for i, example in enumerate(few_shot_examples[:top_k*2])])
+    return ''.join([f'example{i+1}: {example}' for i, example in enumerate(few_shot_examples[:top_k])])
 
 
 def extract_sql_llm():

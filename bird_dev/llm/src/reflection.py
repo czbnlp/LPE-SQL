@@ -3,7 +3,7 @@ from prompt import generate_reflection_cot,generate_reflection_prompts_sql
 from evaluation_ex import execute_model
 
 def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,ground_truth,
-            difficulty,cot,knowledge, k=10,use_knowledge_base = True,falg_add=False):
+            difficulty,cot,knowledge, k=10,use_knowledge_base = True,falg_add=False,correct_rate=None):
     old_sql = sql
     engine, prompt = connect_llm_args
     # 第一次执行
@@ -17,7 +17,7 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
         k-=1
         prompt = generate_reflection_prompts_sql(question,sql,error,retrieval=retrieval,knowledge=knowledge,
                                                 use_knowledge_base=use_knowledge_base,
-                                                db_path=db_path)
+                                                db_path=db_path,correct_rate=correct_rate)
         
         # print("反思 sql prompt：", prompt)
         new_sql = connect_llm(engine, prompt)
@@ -37,7 +37,7 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
         # 当不正确时,用ground_truth来指导llm,生成正确的反思,并添加到错题集
         if res == 0:
             prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,ground_truth,
-                                                    use_knowledge_base=use_knowledge_base,db_path = db_path)
+                                                    use_knowledge_base=use_knowledge_base,db_path = db_path,correct_rate=correct_rate)
             # print("反思 ground true sql prompt：", prompt)
             new_sql = connect_llm(engine, prompt)
             cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,

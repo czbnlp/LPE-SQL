@@ -25,8 +25,8 @@ class TextToSQLRetriever:
         self.init_correct_set_path = os.path.join(root_path, init_correct_set_path)
         self.init_mistake_set_path = os.path.join(root_path, init_mistake_set_path)
         # 加载correct_set和mistake_set
-        self.correct_set = self._load_set_from_json(self.init_correct_set_path) if os.path.exists(self.init_correct_set_path) else []
-        self.mistake_set = self._load_set_from_json(self.init_mistake_set_path) if os.path.exists(self.init_mistake_set_path) else []
+        self.correct_set = self._load_set_from_json(self.correct_vectors_path) if os.path.exists(self.correct_vectors_path) else []
+        self.mistake_set = self._load_set_from_json(self.mistake_vectors_path) if os.path.exists(self.mistake_vectors_path) else []
         print(len(self.correct_set),len(self.mistake_set))
         self.init_correct_len = len(self.correct_set)
         self.init_mistake_len = len(self.mistake_set)

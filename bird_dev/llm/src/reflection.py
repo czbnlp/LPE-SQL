@@ -2,8 +2,18 @@ from utils import execute_sql
 from prompt import generate_reflection_cot,generate_reflection_prompts_sql
 from evaluation_ex import execute_model
 
+def extract(sql):
+    start = sql.find('SELECT')
+    end = sql.rfind("```")
+
+    # 如果没有找到 "```"，将 end 设置为字符串的末尾
+    if end == -1:
+        end = len(sql)
+    return sql[start:end]
+
 def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,ground_truth,
-            difficulty,cot,knowledge, k=10,use_knowledge_base = True,falg_add=False,correct_rate=None):
+            difficulty,cot,knowledge, k=3,use_knowledge_base = True,falg_add=False,correct_rate=None):
+    
     old_sql = sql
     engine, prompt = connect_llm_args
     # 第一次执行
@@ -11,6 +21,9 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
     reflection_txt = None
     old_error = error
     new_sql = None
+    print('---------------------------')
+    print(f"old sql:{old_sql}")
+    print('---------------------------')
     while error != None and k > 0:
         # 如果第一次执行失败，则进入反思流程
         # print('-------------------------------------------')
@@ -20,12 +33,10 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
                                                 db_path=db_path,correct_rate=correct_rate)
         
         # print("反思 sql prompt：", prompt)
-        new_sql = connect_llm(engine, prompt)
-        # cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,
-        #                                      use_knowledge_base=use_knowledge_base,new_sql=new_sql,
-        #                                      db_path = db_path)
-        # print("反思 cot prompt：", cot_prompt)
-        # reflection_txt = connect_llm(engine, cot_prompt)
+        new_sql = extract(connect_llm(engine, prompt))
+        print('---------------------------')
+        print(f"new sql:{new_sql}")
+        print('---------------------------')
         _, error = execute_sql(new_sql, db_path)
 
     predicted_sql = new_sql if new_sql != None else old_sql
@@ -35,11 +46,12 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
 
     if use_knowledge_base: # 当不使用直属库时没必要进一步获取有效的反思过程，至于为何仍要add_to_sets，只是为了方便运行时统计结果
         # 当不正确时,用ground_truth来指导llm,生成正确的反思,并添加到错题集
+        pass
         if res == 0:
-            prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,ground_truth,
+            prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,knowledge,
                                                     use_knowledge_base=use_knowledge_base,db_path = db_path,correct_rate=correct_rate)
             # print("反思 ground true sql prompt：", prompt)
-            new_sql = connect_llm(engine, prompt)
+            new_sql = extract(connect_llm(engine, prompt))
             cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,
                                                 use_knowledge_base=use_knowledge_base,new_sql=new_sql,
                                                 db_path = db_path,ground_truth=ground_truth)

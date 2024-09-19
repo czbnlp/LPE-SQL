@@ -62,8 +62,8 @@ def gpt_generation(prompt,engine):
     from openai import OpenAI
     client = OpenAI(
         # This is the default and can be omitted
-        api_key="sk-XJr4pM2XDm3cl4JTBc30Ba61Be5e42869dFa127e8b748401",
-        base_url="https://api.lqqq.ltd/v1",
+        api_key="",
+        base_url="",
     )
     messages = [
         {"role": "user", "content": prompt},
@@ -78,16 +78,19 @@ def gpt_generation(prompt,engine):
     return chat_completion.choices[0].message.content
 
 def connect_llm(engine, prompt):
-    print(prompt)
+    # print(prompt)
     """
     Function to connect to the GPT API and get the response.
     """
     # print("调用LLM")
     # prompt = truncate_prompt(prompt)
-    if engine == "Llama-3.1-70b":
-        result = qwen2_generation(prompt)
-    else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
-        result = gpt_generation(prompt,engine)
+    try:
+        if engine == "Llama-3.1-70b":
+            result = qwen2_generation(prompt)
+        else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
+            result = gpt_generation(prompt,engine)
+    except:
+        result = ""
     return result
 
 
@@ -151,12 +154,12 @@ def worker_function(question_data,retrieval,use_knowledge_base):
     prompt, engine, client, db_path, question, ground_truth,difficulty,knowledge, i, falg_add,correct_rate = question_data
     # print(f"common sql prompt: {prompt}\n\n\n")
     sql = connect_llm(engine, prompt)
+    sql = sql[sql.find('SELECT'):]
     # print(sql)
     cot_prompt = generate_common_prompts_cot(db_path,question,'SQLite',retrieval,sql,knowledge,use_knowledge_base = use_knowledge_base)
     # print(f"common cot prompt: {cot_prompt}\n\n\n")
 
-    # cot = connect_llm(engine, cot_prompt)
-    cot = ""
+    cot = connect_llm(engine, cot_prompt)
     # print(cot)
     sql, res, exec_res = reflect(question, sql, db_path,
             connect_llm,(engine, ""),
@@ -285,7 +288,8 @@ def collect_response_from_gpt(
             # print("done2")
             sql3,_,res3,exec_res3 = worker_function(task3, retrieval3,use_knowledge_base)
             # print("done3")
-
+            
+            res = 0
             most_consistent_result = select_most_consistent_result(exec_res1, exec_res2, exec_res3)
             if exec_res1 == most_consistent_result:
                 predicted_sql = sql1
@@ -305,7 +309,7 @@ def collect_response_from_gpt(
             res_list.append(res)
             
             responses.append(post_process_response(predicted_sql, db_path_list[i]))
-            with open('./result.txt', 'a') as file:
+            with open('./result_codellama_notrain_know.txt', 'a') as file:
                 file.write(f"vote res: {res}, res1: {res1}, res2: {res2}, res3: {res3}, difficulty: {difficulty_list[i]}\n")
             
             # if (i+1) % 10 == 0 or i + 1 == 147:
@@ -350,7 +354,7 @@ def collect_response_from_gpt(
             sql,_,res,exec_res = worker_function(task, retrieval1,use_knowledge_base)
             # print(f"{i}: {response}")
             responses.append(sql)
-            with open('./result_4.txt', 'a') as file:
+            with open('./result_codellama_common4.txt', 'a') as file:
                 file.write(f"vote res: {res}, difficulty: {difficulty_list[i]}\n")
     return responses
 

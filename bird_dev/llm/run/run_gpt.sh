@@ -15,12 +15,12 @@ engine=Llama-3.1-70b
 # top_k=0
 
 # few-shot (2/2) use_knowledge_base
-# use_knowledge_base='True' # 'True' or 'False'
-# top_k=4
+use_knowledge_base='True' # 'True' or 'False'
+top_k=4
 
 # few-shot (2/2) no use_knowledge_base
-use_knowledge_base='False' # 'True' or 'False'
-top_k=4
+# use_knowledge_base='False' # 'True' or 'False'
+# top_k=4
 
 correct_rate=0.0 # 0.0 / 0.5 / 1.0
 # Choose the number of threads to run in parallel, 1 for single thread

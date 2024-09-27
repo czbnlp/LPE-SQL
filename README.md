@@ -1,22 +1,26 @@
-# The implementation code of "Leveraging Prior Experience: An Expandable Auxiliary Knowledge Base for Text-to-SQL"
+# Implementation Code for "Leveraging Prior Experience: An Expandable Auxiliary Knowledge Base for Text-to-SQL"
 
-## Download BIRD dataset
-Download [BIRD data](https://drive.google.com/drive/folders/1zcoVq3SZItFaTIc6HA7AR_eMdZqKVjpL?usp=sharing) and 保存到/LPE-sql/data/
-
+## Download BIRD Dataset
+First, download the [BIRD dataset](https://drive.google.com/drive/folders/1zcoVq3SZItFaTIc6HA7AR_eMdZqKVjpL?usp=sharing) and save it to the following directory:  
+`/LPE-SQL/data/`
 
 ## Run Inference
-Add your openai key in the *gpt_request.py*. 
-```shell
-api_key="your_api_key"",
-base_url="your_base_url"",
+To run inference, you need to add your OpenAI API key in the `gpt_request.py` file. Update the following variables:
+
+```python
+api_key = "your_api_key"
+base_url = "your_base_url"
 ```
 
-Run the command below, and the predicted sql will be save to the file named "predict_dev.json" 位于/LPE-sql/result/engine (Llama-3.1-70B)。 the predicted result will be save to the file named 'result.txt' 位于/LPE-sql/src/knowledge_base/results/engine(Llama-3.1-70B)
+Then, execute the command below. The predicted SQL queries will be saved to a file named predict_dev.json located in `/LPE-SQL/result/engine (Llama-3.1-70B)`. Additionally, the results will be saved in result.txt found in 
+`/LPE-SQL/src/knowledge_base/results/engine (Llama-3.1-70B)`:
+
 ```bash
 sh run.sh
 ```
 
-## Run evaluation
+## Run Evaluation
+To evaluate the results, use the following command:
 ```bash
-python evaluation_ex.py --path /LPE-sql/src/knowledge_base/results/engine/result.txt 
+python evaluation_ex.py --path /LPE-SQL/src/knowledge_base/results/engine/result.txt 
 ```

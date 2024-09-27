@@ -26,11 +26,11 @@ def local_generation(prompt,engine):
     ]
     from openai import OpenAI
     client = OpenAI(
-      base_url="http://localhost:28083/v1/",
-      api_key="Empty",
+      base_url="",
+      api_key="",
     )
     completion = client.chat.completions.create(
-        model="Qwen2-57B-A14B-Instruct-GPTQ-Int4",
+        model=engine,
         messages=messages,
         stream=False,
         temperature=0,
@@ -43,7 +43,7 @@ def api_generation(prompt,engine):
     from openai import OpenAI
     client = OpenAI(
         # This is the default and can be omitted
-        api_key="",
+        api_key="sk-",
         base_url="",
     )
     messages = [
@@ -63,7 +63,7 @@ def connect_llm(engine, prompt):
     Function to connect to the API or  and get the response.
     """
     try:
-        if engine == "Llama-3.1-70b":
+        if engine == "Llama-3.1-70b" or 'CodeLlama':
             result = local_generation(prompt,engine)
         else:  # gpt-4-turbo, gpt-4, gpt-4-32k, gpt-35-turbo
             result = api_generation(prompt,engine)
@@ -177,13 +177,12 @@ def collect_response_from_gpt(
     engine_dir = os.path.join(results_path, engine)
     os.makedirs(engine_dir, exist_ok=True)
     responses = []
+
     if accumulate_knowledge_base or use_init_knowledge_base:
         simple_results, moderate_results, challenging_results = [],[],[]
         res_list = []
         for i in tqdm(range(len(question_list)), desc=f"{engine}; accumulate_knowledge_base: {accumulate_knowledge_base}; top_k:{top_k}; use_init_knowledge_base: {use_init_knowledge_base};"):
             # Generate the task only when needed
-            if i < 1533:
-                continue
 
             task1 = (
                 generate_common_prompts_sql(

@@ -194,12 +194,10 @@ def table_descriptions_parser(database_dir):
 def generate_schema_prompt(sql_dialect, db_path=None, num_rows=None):
     if sql_dialect == "SQLite":
         schema_prompt = "\n### Schema of the database with sample rows and column descriptions:\n"+generate_schema_prompt_sqlite(db_path, num_rows)
-        db_descriptions = db_path[:db_path.rfind('/')+1]+"database_description"
+        # db_descriptions = db_path[:db_path.rfind('/')+1]+"database_description"
         # column_description = table_descriptions_parser(db_descriptions)
         # return schema_prompt+'\n\n'+column_description+'\n\n'
         return schema_prompt+'\n\n'
     else:
         raise ValueError("Unsupported SQL dialect: {}".format(sql_dialect))
     
-# path = "/data/qqt/1615_c/text-to-sql/bird_minidev/llm/data/dev_databases/california_schools/california_schools.sqlite"
-# print(generate_schema_prompt('SQLite',path))

@@ -80,233 +80,6 @@ few_shot_examples = [
     """,
 ]
 
-SYSTEM_CLASSIFICATION_TEMPLATE = """
-For the given question, classify it as EASY, NON-NESTED, or NESTED based on nested queries and JOIN.
-if need nested queries: predict NESTED
-elif need JOIN and don't need nested queries: predict NON-NESTED
-elif don't need JOIN and don't need nested queries: predict EASY
-Note: Don't mistake the WHERE conditions with nested queries.
-Note: Only predict NESTED if the question needs nested queries, if it can be solved with JOIN, predict NON-NESTED.
-Note: Only response EASY or NESTED or NON-NESTED!!!
-###
-Few examples of this task are:
-###
-Schema of the database with sample rows and column descriptions:
-#
-CREATE TABLE lists (
-        user_id INTEGER, 
-        list_id INTEGER NOT NULL, 
-        list_title TEXT, 
-        list_movie_number INTEGER, 
-        list_update_timestamp_utc TEXT, 
-        list_creation_timestamp_utc TEXT, 
-        list_followers INTEGER, 
-        list_url TEXT, 
-        list_comments INTEGER, 
-        list_description TEXT, 
-        list_cover_image_url TEXT, 
-        list_first_image_url TEXT, 
-        list_second_image_url TEXT, 
-        list_third_image_url TEXT, 
-        PRIMARY KEY (list_id), 
-        FOREIGN KEY(user_id) REFERENCES lists_users (user_id)
-)
-
-/*
-3 rows from lists table:
-user_id list_id list_title      list_movie_number       list_update_timestamp_utc       list_creation_timestamp_utc     list_followers  list_url        list_commentslist_description list_cover_image_url    list_first_image_url    list_second_image_url   list_third_image_url
-88260493        1       Films that made your kid sister cry     5       2019-01-24 19:16:18     2009-11-11 00:02:21     5       http://mubi.com/lists/films-that-made-your-kid-sister-cry     3       <p>Don’t be such a baby!!</p>
-<p><strong>bold</strong></p>    https://assets.mubicdn.net/images/film/3822/image-w1280.jpg?1445914994  https://assets.mubicdn.net/images/film/3822/image-w320.jpg?1445914994 https://assets.mubicdn.net/images/film/506/image-w320.jpg?1543838422    https://assets.mubicdn.net/images/film/485/image-w320.jpg?1575331204
-45204418        2       Headscratchers  3       2018-12-03 15:12:20     2009-11-11 00:05:11     1       http://mubi.com/lists/headscratchers    2       <p>Films that need at least two viewings to really make sense.</p>
-<p>Or at least… they did for <em>       https://assets.mubicdn.net/images/film/4343/image-w1280.jpg?1583331932  https://assets.mubicdn.net/images/film/4343/image-w320.jpg?1583331932 https://assets.mubicdn.net/images/film/159/image-w320.jpg?1548864573    https://assets.mubicdn.net/images/film/142/image-w320.jpg?1544094102
-48905025        3       Sexy Time Movies        7       2019-05-30 03:00:07     2009-11-11 00:20:00     6       http://mubi.com/lists/sexy-time-movies  5       <p>Films that get you in the mood…for love. In development.</p>
-<p>Remarks</p>
-<p><strong>Enter the    https://assets.mubicdn.net/images/film/3491/image-w1280.jpg?1564112978  https://assets.mubicdn.net/images/film/3491/image-w320.jpg?1564112978https://assets.mubicdn.net/images/film/2377/image-w320.jpg?1564675204    https://assets.mubicdn.net/images/film/2874/image-w320.jpg?1546574412
-*/
-
-
-CREATE TABLE lists_users (
-        user_id INTEGER NOT NULL, 
-        list_id INTEGER NOT NULL, 
-        list_update_date_utc TEXT, 
-        list_creation_date_utc TEXT, 
-        user_trialist INTEGER, 
-        user_subscriber INTEGER, 
-        user_avatar_image_url TEXT, 
-        user_cover_image_url TEXT, 
-        user_eligible_for_trial TEXT, 
-        user_has_payment_method TEXT, 
-        PRIMARY KEY (user_id, list_id), 
-        FOREIGN KEY(list_id) REFERENCES lists (list_id), 
-        FOREIGN KEY(user_id) REFERENCES lists (user_id)
-)
-
-/*
-3 rows from lists_users table:
-user_id list_id list_update_date_utc    list_creation_date_utc  user_trialist   user_subscriber user_avatar_image_url   user_cover_image_url    user_eligible_for_trial       user_has_payment_method
-85981819        1969    2019-11-26      2009-12-18      1       1       https://assets.mubicdn.net/images/avatars/74983/images-w150.jpg?1523895214      None    0    1
-85981819        3946    2020-05-01      2010-01-30      1       1       https://assets.mubicdn.net/images/avatars/74983/images-w150.jpg?1523895214      None    0    1
-85981819        6683    2020-04-12      2010-03-31      1       1       https://assets.mubicdn.net/images/avatars/74983/images-w150.jpg?1523895214      None    0    1
-*/
-
-CREATE TABLE movies (
-        movie_id INTEGER NOT NULL, 
-        movie_title TEXT, 
-        movie_release_year INTEGER, 
-        movie_url TEXT, 
-        movie_title_language TEXT, 
-        movie_popularity INTEGER, 
-        movie_image_url TEXT, 
-        director_id TEXT, 
-        director_name TEXT, 
-        director_url TEXT, 
-        PRIMARY KEY (movie_id)
-)
-
-/*
-3 rows from movies table:
-movie_id        movie_title     movie_release_year      movie_url       movie_title_language    movie_popularity        movie_image_url director_id     director_namedirector_url
-1       La Antena       2007    http://mubi.com/films/la-antena en      105     https://images.mubicdn.net/images/film/1/cache-7927-1581389497/image-w1280.jpg  131  Esteban Sapir    http://mubi.com/cast/esteban-sapir
-2       Elementary Particles    2006    http://mubi.com/films/elementary-particles      en      23      https://images.mubicdn.net/images/film/2/cache-512179-1581389841/image-w1280.jpg      73      Oskar Roehler   http://mubi.com/cast/oskar-roehler
-3       It's Winter     2006    http://mubi.com/films/its-winter        en      21      https://images.mubicdn.net/images/film/3/cache-7929-1481539519/image-w1280.jpg82      Rafi Pitts      http://mubi.com/cast/rafi-pitts
-*/
-
-CREATE TABLE ratings (
-        movie_id INTEGER, 
-        rating_id INTEGER, 
-        rating_url TEXT, 
-        rating_score INTEGER, 
-        rating_timestamp_utc TEXT, 
-        critic TEXT, 
-        critic_likes INTEGER, 
-        critic_comments INTEGER, 
-        user_id INTEGER, 
-        user_trialist INTEGER, 
-        user_subscriber INTEGER, 
-        user_eligible_for_trial INTEGER, 
-        user_has_payment_method INTEGER, 
-        FOREIGN KEY(movie_id) REFERENCES movies (movie_id), 
-        FOREIGN KEY(user_id) REFERENCES lists_users (user_id), 
-        FOREIGN KEY(rating_id) REFERENCES ratings (rating_id), 
-        FOREIGN KEY(user_id) REFERENCES ratings_users (user_id)
-)
-
-/*
-3 rows from ratings table:
-movie_id        rating_id       rating_url      rating_score    rating_timestamp_utc    critic  critic_likes    critic_comments user_id user_trialist   user_subscriber       user_eligible_for_trial user_has_payment_method
-1066    15610495        http://mubi.com/films/pavee-lackeen-the-traveller-girl/ratings/15610495 3       2017-06-10 12:38:33     None    0       0       41579158     00       1       0
-1066    10704606        http://mubi.com/films/pavee-lackeen-the-traveller-girl/ratings/10704606 2       2014-08-15 23:42:31     None    0       0       85981819     11       0       1
-1066    10177114        http://mubi.com/films/pavee-lackeen-the-traveller-girl/ratings/10177114 2       2014-01-30 13:21:57     None    0       0       4208563 0    01       1
-*/
-
-Table: lists_users
-Column user_id: column description -> ID related to the user who created the list.
-Column list_id: column description -> ID of the list on Mubi
-Column list_update_date_utc: column description -> Last update date for the list, value description -> YYYY-MM-DD
-Column list_creation_date_utc: column description -> Creation date for the list, value description -> YYYY-MM-DD
-Column user_trialist: column description -> whether the user was a tralist when he created the list , value description -> 1 = the user was a trialist when he created the list 0 = the user was not a trialist when he created the list
-Column user_subscriber: column description -> whether the user was a subscriber when he created the list , value description -> 1 = the user was a subscriber when he created the list 0 = the user was not a subscriber when he created the list
-Column user_avatar_image_url: column description -> User profile image URL on Mubi
-Column user_cover_image_url: column description -> User profile cover image URL on Mubi
-Column user_eligible_for_trial: column description -> whether the user was eligible for trial when he created the list , value description -> 1 = the user was eligible for trial when he created the list 0 = the user was not eligible for trial when he created the list
-Column user_has_payment_method : column description -> whether the user was a paying subscriber when he created the list , value description -> 1 = the user was a paying subscriber when he created the list 0 = the user was not a paying subscriber when he created the list 
-
-Table: lists
-Column user_id: column description -> ID related to the user who created the list.
-Column list_id: column description -> ID of the list on Mubi
-Column list_title: column description -> Name of the list
-Column list_movie_number: column description -> Number of movies added to the list
-Column list_update_timestamp_utc: column description -> Last update timestamp for the list
-Column list_creation_timestamp_utc: column description -> Creation timestamp for the list
-Column list_followers: column description -> Number of followers on the list
-Column list_url: column description -> URL to the list page on Mubi
-Column list_comments: column description -> Number of comments on the list
-Column list_description: column description -> List description made by the user
-
-Table: ratings
-Column movie_id: column description -> Movie ID related to the rating
-Column rating_id: column description -> Rating ID on Mubi
-Column rating_url: column description -> URL to the rating on Mubi
-Column rating_score: column description -> Rating score ranging from 1 (lowest) to 5 (highest), value description -> commonsense evidence: The score is proportional to the user's liking. The higher the score is, the more the user likes the movie
-Column rating_timestamp_utc : column description -> Timestamp for the movie rating made by the user on Mubi
-Column critic: column description -> Critic made by the user rating the movie. , value description -> If value = "None", the user did not write a critic when rating the movie.
-Column critic_likes: column description -> Number of likes related to the critic made by the user rating the movie
-Column critic_comments: column description -> Number of comments related to the critic made by the user rating the movie
-Column user_id: column description -> ID related to the user rating the movie
-Column user_trialist : column description -> whether user was a tralist when he rated the movie, value description -> 1 = the user was a trialist when he rated the movie 0 = the user was not a trialist when he rated the movie
-
-Table: movies
-Column movie_id: column description -> ID related to the movie on Mubi
-Column movie_title: column description -> Name of the movie
-Column movie_release_year: column description -> Release year of the movie
-Column movie_url: column description -> URL to the movie page on Mubi
-Column movie_title_language: column description -> By default, the title is in English., value description -> Only contains one value which is 'en'
-Column movie_popularity: column description -> Number of Mubi users who love this movie
-Column movie_image_url: column description -> Image URL to the movie on Mubi
-Column director_id: column description -> ID related to the movie director on Mubi
-Column director_name: column description -> Full Name of the movie director
-Column director_url : column description -> URL to the movie director page on Mubi
-#
-
-Q: What is the list ID that was first created by user 85981819?
-Hint: first created list refers to oldest list_creation_date_utc;
-A: Let’s think step by step. The SQL query for the given question needs these tables = [lists_users], so we don't need JOIN.
-Plus, it doesn't require nested queries, and we need the answer to the sub-questions = [""].
-So, we don't need JOIN and don't need nested queries, then the SQL query can be classified as "EASY".
-Label: "EASY"
-
-Q: How many more movie lists were created by the user who created the movie list \"250 Favourite Films\"?
-Hint: 250 Favourite Films refers to list_title;
-A: Let’s think step by step. The SQL query for the given question needs these tables = [lists,lists_users], so we need JOIN.
-Plus, it requires nested queries, and we need the answer to the sub-questions = [who created the movie list \"250 Favourite Films\"?].
-So, we need JOIN and need nested queries, then the SQL query can be classified as "NESTED".
-Label: "NESTED"
-
-Q: What is the percentage of the ratings were rated by user who was a subcriber?
-Hint: user is a subscriber refers to user_subscriber = 1; percentage of ratings = DIVIDE(SUM(user_subscriber = 1), SUM(rating_score)) as percent;
-A: Let’s think step by step. The SQL query for the given question needs these tables = [ratings], so we don't need JOIN.
-Plus, it doesn't require nested queries, and we need the answer to the sub-questions = [""].
-So, we don't need JOIN and don't need nested queries, then the SQL query can be classified as "EASY".
-Label: "EASY"
-
-Q: Was the user who created the \"World War 2 and Kids\" list eligible for trial when he created the list? Indicate how many followers does the said list has.
-Hint: user was eligible for trial when he created the list refers to user_eligible_for_trial = 1; number of followers a list have refers to list_followers;
-A: Let’s think step by step. The SQL query for the given question needs these tables = [lists, lists_users], so we need JOIN.
-Plus, it doesn't need nested queries, and we need the answer to the sub-questions = [""].
-So, we need JOIN and don't need nested queries, then the SQL query can be classified as "NON-NESTED".
-Label: "NON-NESTED"
-
-Q: Which year was the third movie directed by Quentin Tarantino released? Indicate the user ids of the user who gave it a rating score of 4.
-Hint: third movie refers to third movie that has oldest movie_release_year;
-A: Let’s think step by step. The SQL query for the given question needs these tables = [ratings,movies], so we need JOIN.
-Plus, it requires nested queries, and we need the answer to the sub-questions = [Which movie is the third movie directed by Quentin Tarantino?].
-So, we need JOIN and need nested queries, then the SQL query can be classified as "NESTED".
-Label: "NESTED"
-
-Q: What is the average number of followers of the lists created by the user who rated the movie \"Pavee Lackeen: The Traveller Girl\" on 3/27/2011 at 2:06:34 AM?
-Hint: average number of followers refers to AVG(list_followers); movie \"Pavee Lackeen: The Traveller Girl\" refers to movie_title = 'Pavee Lackeen: The Traveller Girl'; on 3/27/2011 at 2:06:34 AM refers to rating_timestamp_utc = '2011-03-27 02:06:34'
-A: Let’s think step by step. The SQL query for the given question needs these tables = [lists, lists_users,ratings,movies], so we need JOIN.
-Plus, it doesn't need nested queries, and we need the answer to the sub-questions = [""].
-So, we need JOIN and don't need nested queries, then the SQL query can be classified as "NON-NESTED".
-Label: "NON-NESTED"
-
-"""  # noqa: E501
-
-def generate_classification_comment_prompt(schema,question, knowledge=None):
-    return f"""
-            For the given question, classify it as EASY, NON-NESTED, or NESTED based on nested queries and JOIN.
-            if need nested queries: predict NESTED
-            elif need JOIN and don't need nested queries: predict NON-NESTED
-            elif don't need JOIN and don't need nested queries: predict EASY
-            ###
-            Schema of the database with sample rows and column descriptions:
-            #
-            {schema}
-            #
-            Q: {question}
-            Hint: {knowledge}
-            A: Let’s think step by step."""
-
 def generate_comment_prompt(question, sql_dialect, knowledge=None):
     base_prompt = f"-- Using valid {sql_dialect}"
     knowledge_text = " and understanding Hint" if knowledge else ""
@@ -333,10 +106,6 @@ def generate_instruction_prompt():
         You only need to return the result SQLite SQL code
         start from SELECT
         """
-    # return """Please respond with a JSON object structured as follows: {
-    #                 "chain_of_thought_reasoning": "Your thought process on how you arrived at the final SQL query.",
-    #                 "SQL": "return the result SQLite SQL codestart from SELECT"
-    #             } """
 
 def generate_examples(question, retrieval,correct_rate=None):
     if retrieval.top_k == 0:
@@ -344,7 +113,6 @@ def generate_examples(question, retrieval,correct_rate=None):
     if correct_rate != None:
         retrieval.correct_rate = correct_rate
     correct_examples, mistake_examples = retrieval.get_in_context_examples(question,correct_rate)
-    # print(len(correct_examples),len(mistake_examples))
     correct_prompt = '\n\n'.join(
         [
             f"example{index+1}: {{\n" + 
@@ -385,17 +153,6 @@ def generate_common_prompts_sql(db_path, question, sql_dialect, retrieval,knowle
     )
     return combined_prompts
 
-def generate_difficulty_prompts(db_path, question, sql_dialect,knowledge=None):
-    examples = SYSTEM_CLASSIFICATION_TEMPLATE
-
-    schema_prompt = generate_schema_prompt(sql_dialect, db_path)
-    instruction_prompt = generate_classification_comment_prompt(schema_prompt,question,knowledge)
-
-
-    combined_prompts = "\n\n".join(
-        [examples, instruction_prompt]
-    )
-    return combined_prompts
 
 
 def generate_reflection_prompts_sql(question, sql, error, retrieval,knowledge,ground_truth=None,accumulate_knowledge_base=True,db_path=None,correct_rate=None):
@@ -407,17 +164,12 @@ def generate_reflection_prompts_sql(question, sql, error, retrieval,knowledge,gr
     prompt = examples + f"\n\n### Question:\n{question}\n\n### Hint:\n{knowledge}\n\n### SQL Query:\n{sql}\n\n### Error:\n{error}\n"
     prompt += generate_schema_prompt('SQLite', db_path)
     if ground_truth:
-        # 如果提供了ground_truth, 则进一步引导反思
         prompt += f"\n### Ground Truth SQL:\n{ground_truth}\n"
         prompt += "\nGiven the SQL query, Hint, the error encountered, and the correct ground truth SQL, reflect on the error and provide a corrected SQL query."
     else:
-        # 没有ground_truth时，引导LLM尝试自行修正
         prompt += "\nReflect on the error encountered in the SQL query and provide a corrected SQL query. "
     prompt += generate_instruction_prompt()
-    # prompt += """Please respond with a JSON object structured as follows: {
-    #                 "chain_of_thought_reasoning": "Your process of reflection, including why you made a mistake with the sql you generated earlier and how to correct it.",
-    #                 "SQL": "Your SQL query begins with SELECT."
-    #             } """
+
     return prompt
 
 def generate_hand_prompts_one(db_path, question, sql_dialect,top_k,knowledge=None):
@@ -440,47 +192,8 @@ def generate_hand_examples(top_k):
     return ''.join([f'example{i+1}: {example}' for i, example in enumerate(few_shot_examples[:top_k])])
 
 
-def extract_sql_llm():
-    return """Please extract the SQL at the following text.
-    In your response, you do not need to mention your intermediate steps. 
-    Do not include any comments in your response.
-    Do not need to start with the symbol ```
-    you only need to return the result SQL code from the SELECT start.
-    I give you an example:
-    input:
-    {
-        "chain_of_thought_reasoning": "In the SQL query I generated earlier, I attempted to find the number of students from the Student_Club who attended the event 'Women's Soccer' and want a T-shirt in medium size. However, I made a mistake by not properly handling the error encountered in the SQL query. The error message 'near "s": syntax error' indicates that there is a syntax error in the SQL query, which could be due to a missing or misplaced keyword or punctuation. To correct this, I need to review the SQL query and ensure that all the keywords and punctuation are used correctly. I will use the INNER JOIN clause to join the 'attendance' table with the 'member' table on the 'link_to_member' column to get the member information. Then, I will use the WHERE clause to filter the records based on the event ID and the T-shirt size. I will use the COUNT function to count the number of students who meet the criteria. I will also use the SELECT clause to select the COUNT function and the FROM clause to specify the tables being used in the query. Finally, I will use the WHERE clause to filter the records based on the event name and the T-shirt size.",
-        "SQL": "SELECT COUNT(*) FROM attendance AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.link_to_event = (SELECT event_id FROM event WHERE event_name = 'Women\\'s Soccer') AND T2.t_shirt_size = 'Medium'"
-    }
-    output:SELECT COUNT(*) FROM attendance AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.link_to_event = (SELECT event_id FROM event WHERE event_name = 'Women\\'s Soccer') AND T2.t_shirt_size = 'Medium'
-    Please process the following
-    input:
-    """
-def extract_cot_llm():
-    return """Please extract the chain_of_thought_reasoning at the following text.
-    In your response, you do not need to mention your intermediate steps. 
-    Do not include any comments in your response.
-    Do not need to start with the symbol ```
-    you only need to return the chain_of_thought_reasoning.
-    I give you an example:
-    input:
-    {
-        "chain_of_thought_reasoning": "In the SQL query I generated earlier, I attempted to find the number of students from the Student_Club who attended the event 'Women's Soccer' and want a T-shirt in medium size. However, I made a mistake by not properly handling the error encountered in the SQL query. The error message 'near "s": syntax error' indicates that there is a syntax error in the SQL query, which could be due to a missing or misplaced keyword or punctuation. To correct this, I need to review the SQL query and ensure that all the keywords and punctuation are used correctly. I will use the INNER JOIN clause to join the 'attendance' table with the 'member' table on the 'link_to_member' column to get the member information. Then, I will use the WHERE clause to filter the records based on the event ID and the T-shirt size. I will use the COUNT function to count the number of students who meet the criteria. I will also use the SELECT clause to select the COUNT function and the FROM clause to specify the tables being used in the query. Finally, I will use the WHERE clause to filter the records based on the event name and the T-shirt size.",
-        "SQL": "SELECT COUNT(*) FROM attendance AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.link_to_event = (SELECT event_id FROM event WHERE event_name = 'Women\\'s Soccer') AND T2.t_shirt_size = 'Medium'"
-    }
-    output:In the SQL query I generated earlier, I attempted to find the number of students from the Student_Club who attended the event 'Women's Soccer' and want a T-shirt in medium size. However, I made a mistake by not properly handling the error encountered in the SQL query. The error message 'near "s": syntax error' indicates that there is a syntax error in the SQL query, which could be due to a missing or misplaced keyword or punctuation. To correct this, I need to review the SQL query and ensure that all the keywords and punctuation are used correctly. I will use the INNER JOIN clause to join the 'attendance' table with the 'member' table on the 'link_to_member' column to get the member information. Then, I will use the WHERE clause to filter the records based on the event ID and the T-shirt size. I will use the COUNT function to count the number of students who meet the criteria. I will also use the SELECT clause to select the COUNT function and the FROM clause to specify the tables being used in the query. Finally, I will use the WHERE clause to filter the records based on the event name and the T-shirt size.
-    Please process the following
-    input:
-    """
-
-
 def generate_reflection_cot(question, old_sql, error, retrieval, knowledge, ground_truth=None, accumulate_knowledge_base=True, db_path=None, new_sql=None):
-    # if accumulate_knowledge_base:
-    #     examples = generate_examples(question, retrieval)
-    # else:
-    #     examples = generate_hand_examples(retrieval.top_k)
-    
-    # prompt = examples
+
     prompt = ""
     prompt += generate_schema_prompt('SQLite', db_path)
 
@@ -491,25 +204,18 @@ def generate_reflection_cot(question, old_sql, error, retrieval, knowledge, grou
     prompt += f"\n### SQL after Reflection:\n{new_sql}\n"
     
     prompt += f"\n### Ground Truth SQL:\n{ground_truth}\n"
-    # prompt += "\nGiven the corrected SQL query and the error you reflected on, explain your reasoning briefly. Please also provide a concise tip on how to avoid making the same mistake in the future. Your response should be succinct and focus on the key points."
     prompt += """Error SQL Query is the result you generate the first time and SQL after Reflection is the result you generate again based on the Error information returned by the compiler knowing that the first generated result was wrong. Now that both results are known to be wrong, I am providing Ground Truth SQL for your reference, please think carefully about why your first two results were not correct, please provide a Tip on how to avoid making the same mistake in the future. Note that you only need to return the Tip. Please return in the following format:\
                     ### Tip:\
                 """
     return prompt
 
 def generate_common_prompts_cot(db_path, question, sql_dialect, retrieval, sql, knowledge=None,accumulate_knowledge_base = None):
-    # if accumulate_knowledge_base:
-    #     examples = generate_examples(question, retrieval)
-    # else:
-    #     examples = generate_hand_examples(retrieval.top_k)
-    # prompt = examples
     prompt = ""
     prompt += generate_schema_prompt(sql_dialect, db_path)
     prompt += f"\n### Question: {question}\n"
     prompt += f"\n### Hint:\n{knowledge}\n"
     prompt += f"\n###You just generated the following SQL:\n{sql}\n\n"
     
-    # 保持instruction_prompt简洁
     prompt += """
         Now, please provide your thought process behind the generation of this SQL query.
         Your explanation should be concise and efficient, focusing on the key reasoning steps.

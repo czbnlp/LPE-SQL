@@ -10,7 +10,7 @@ The `result` folder contains all experimental results. Each subfolder may includ
 - **`notrain_know.txt`**: Results obtained without using the training set through accumulation.
 - **`common_4-shot.txt`**: A fixed set of four handwritten examples.
 
-The RQ4 results contain experimental results obtained using Llama-3.1-70B on the dev subset, along with the initial knowledge base files and the dev subset used in the experiments.
+The `RQ4_result` contain experimental results obtained using Llama-3.1-70B on the dev subset, along with the initial knowledge base files and the dev subset used in the experiments.
 
 
 ## Download BIRD Dataset

@@ -14,6 +14,8 @@ The `RQ4_result` contain experimental results obtained using Llama-3.1-70B on th
 
 The `src` folder contains all source code.
 
+The `data` folder contains the BIRD development set.
+
 ## Download BIRD Dataset
 First, download the [BIRD dataset](https://drive.google.com/drive/folders/1zcoVq3SZItFaTIc6HA7AR_eMdZqKVjpL?usp=sharing) and save it to the following directory:  
 `/LPE-SQL/data/`

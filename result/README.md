@@ -10,7 +10,7 @@ Where:
 - **res1**: The result when using `correct rate = 1` (1 = correct, 0 = incorrect).
 - **res2**: The result when using `correct rate = 0.5` (1 = correct, 0 = incorrect).
 - **res3**: The result when using `correct rate = 0` (1 = correct, 0 = incorrect).
-- **difficulty**: The difficulty level of the current example (`simple` or `moderate`).
+- **difficulty**: The difficulty level of the current example (`simple` or `moderate` or `challenging`).
 
 All the results are listed in the order of the evaluation set.
 

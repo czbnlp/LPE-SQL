@@ -19,9 +19,6 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
     reflection_txt = None
     old_error = error
     new_sql = None
-    print('---------------------------')
-    print(f"old sql:{old_sql}")
-    print('---------------------------')
     while error != None and k > 0:
         k-=1
         prompt = generate_reflection_prompts_sql(question,sql,error,retrieval=retrieval,knowledge=knowledge,
@@ -37,9 +34,10 @@ def reflect(question, sql, db_path, connect_llm,connect_llm_args,retrieval,groun
 
     if accumulate_knowledge_base: 
         if res == 0:
-            prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,knowledge,
-                                                    accumulate_knowledge_base=accumulate_knowledge_base,db_path = db_path,correct_rate=correct_rate)
-            new_sql = extract(connect_llm(engine, prompt))
+            if new_sql == None:
+                prompt = generate_reflection_prompts_sql(question,predicted_sql,error,retrieval,knowledge,
+                                                        accumulate_knowledge_base=accumulate_knowledge_base,db_path = db_path,correct_rate=correct_rate)
+                new_sql = extract(connect_llm(engine, prompt))
             cot_prompt = generate_reflection_cot(question, old_sql,error,retrieval,knowledge,
                                                 accumulate_knowledge_base=accumulate_knowledge_base,new_sql=new_sql,
                                                 db_path = db_path,ground_truth=ground_truth)

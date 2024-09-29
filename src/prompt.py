@@ -163,11 +163,8 @@ def generate_reflection_prompts_sql(question, sql, error, retrieval,knowledge,gr
 
     prompt = examples + f"\n\n### Question:\n{question}\n\n### Hint:\n{knowledge}\n\n### SQL Query:\n{sql}\n\n### Error:\n{error}\n"
     prompt += generate_schema_prompt('SQLite', db_path)
-    if ground_truth:
-        prompt += f"\n### Ground Truth SQL:\n{ground_truth}\n"
-        prompt += "\nGiven the SQL query, Hint, the error encountered, and the correct ground truth SQL, reflect on the error and provide a corrected SQL query."
-    else:
-        prompt += "\nReflect on the error encountered in the SQL query and provide a corrected SQL query. "
+
+    prompt += "\nReflect on the error encountered in the SQL query and provide a corrected SQL query. "
     prompt += generate_instruction_prompt()
 
     return prompt

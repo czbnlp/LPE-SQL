@@ -40,3 +40,14 @@ To evaluate the results, use the following command:
 ```bash
 python evaluation_ex.py --path /LPE-SQL/src/knowledge_base/results/engine/result.txt 
 ```
+
+## Citation
+If you find that our paper helps your research, we would appreciate citations to the following paper:
+```bash
+@article{chu2024leveraging,
+  title={Leveraging Prior Experience: An Expandable Auxiliary Knowledge Base for Text-to-SQL},
+  author={Chu, Zhibo and Wang, Zichong and Qin, Qitao},
+  journal={arXiv preprint arXiv:2411.13244},
+  year={2024}
+}
+```
